@@ -1,0 +1,142 @@
+{
+  "title": "dbg test: dbg_real_project::tests::counter_pipeline_fails",
+  "nodes": [
+    {
+      "id": "dbg_real_project::Counter",
+      "label": "Counter",
+      "kind": "type",
+      "module_path": "dbg_real_project",
+      "file": "src/lib.rs",
+      "line": 3
+    },
+    {
+      "id": "dbg_real_project::classify",
+      "label": "classify",
+      "kind": "function",
+      "module_path": "dbg_real_project",
+      "file": "src/lib.rs",
+      "line": 14
+    },
+    {
+      "id": "dbg_real_project::increment",
+      "label": "increment",
+      "kind": "function",
+      "module_path": "dbg_real_project",
+      "file": "src/lib.rs",
+      "line": 8
+    },
+    {
+      "id": "test::dbg_real_project::tests::counter_pipeline_fails",
+      "label": "dbg_real_project::tests::counter_pipeline_fails",
+      "kind": "test",
+      "module_path": "cargo::test",
+      "file": "<runner>",
+      "line": 0
+    }
+  ],
+  "edges": [
+    {
+      "from": "dbg_real_project::increment",
+      "to": "dbg_real_project::Counter"
+    },
+    {
+      "from": "test::dbg_real_project::tests::counter_pipeline_fails",
+      "to": "dbg_real_project::classify"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": null,
+      "parent_call_id": null,
+      "node_id": "test::dbg_real_project::tests::counter_pipeline_fails",
+      "kind": "test_started",
+      "title": "dbg_real_project::tests::counter_pipeline_fails",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "dbg_real_project::increment",
+      "kind": "function_enter",
+      "title": "enter increment",
+      "values": [
+        {
+          "name": "counter",
+          "preview": "type &mut dbg_real_project::Counter"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "dbg_real_project::Counter",
+      "kind": "value_snapshot",
+      "title": "increment",
+      "values": [
+        {
+          "name": "Counter",
+          "preview": "Counter {\n    value: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "dbg_real_project::increment",
+      "kind": "function_exit",
+      "title": "return increment",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "dbg_real_project::classify",
+      "kind": "function_enter",
+      "title": "enter classify",
+      "values": [
+        {
+          "name": "counter",
+          "preview": "type &dbg_real_project::Counter"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "dbg_real_project::classify",
+      "kind": "function_exit",
+      "title": "return classify",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type &str"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": null,
+      "parent_call_id": null,
+      "node_id": "test::dbg_real_project::tests::counter_pipeline_fails",
+      "kind": "test_failed",
+      "title": "dbg_real_project::tests::counter_pipeline_fails",
+      "values": [
+        {
+          "name": "failure",
+          "preview": "assertion `left == right` failed\n  left: \"warming-up\"\n right: \"ready\""
+        }
+      ]
+    }
+  ]
+}

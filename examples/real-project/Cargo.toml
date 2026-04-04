@@ -1,0 +1,9 @@
+[package]
+name = "dbg-real-project"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dbg = { package = "dbgflow", path = "../../crates/dbg-cli" }
+
+[workspace]

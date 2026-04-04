@@ -1,0 +1,23 @@
+[package]
+name = "dbgflow-macros"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Procedural macros for the dbg graph debugger: #[trace], #[ui_debug], and #[dbg_test]."
+documentation = "https://docs.rs/dbgflow-macros"
+readme = "README.md"
+keywords = ["debugger", "trace", "macro", "graph", "rust"]
+categories = ["development-tools::debugging", "development-tools::procedural-macro-helpers"]
+
+[lib]
+name = "dbg_macros"
+proc-macro = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
