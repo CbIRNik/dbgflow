@@ -1,6 +1,6 @@
 # dbgflow-core
 
-Core runtime crate for the `dbg` graph debugger ecosystem.
+Core runtime crate for the `dbgflow` graph debugger ecosystem.
 
 This package contains:
 
@@ -9,4 +9,4 @@ This package contains:
 - session persistence helpers
 - the embedded browser UI server
 
-Most users should depend on `dbgflow` and import the `dbg` crate instead of using this crate directly.
+Most users should depend on `dbgflow` instead of using this crate directly.

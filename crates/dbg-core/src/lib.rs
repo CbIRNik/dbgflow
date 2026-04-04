@@ -1,4 +1,4 @@
-//! Core runtime for the `dbg` graph debugger.
+//! Core runtime for the `dbgflow` graph debugger.
 //!
 //! This crate contains the in-memory session model, event collector, session
 //! persistence helpers, and the embedded local UI server.
@@ -186,7 +186,7 @@ fn state() -> &'static Mutex<RuntimeState> {
 }
 
 fn lock_state() -> MutexGuard<'static, RuntimeState> {
-    state().lock().expect("dbg-core runtime mutex poisoned")
+    state().lock().expect("dbgflow-core runtime mutex poisoned")
 }
 
 fn next_seq(state: &RuntimeState) -> u64 {

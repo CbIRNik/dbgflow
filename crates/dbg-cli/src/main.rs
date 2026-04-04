@@ -4,10 +4,10 @@ use std::process::Command as ProcessCommand;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::{Parser, Subcommand};
-use dbg::{EventKind, read_session_json};
+use dbgflow::{EventKind, read_session_json};
 
 #[derive(Parser)]
-#[command(name = "dbg", about = "Graph-first Rust debugger for Rust code")]
+#[command(name = "dbgflow", about = "Graph-first Rust debugger for Rust code")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -49,8 +49,8 @@ fn main() -> std::io::Result<()> {
             output,
             serve,
             port,
-        } => dbg::demo::run(output, serve, port),
-        Command::Serve { session, port } => dbg::demo::serve_saved(session, port),
+        } => dbgflow::demo::run(output, serve, port),
+        Command::Serve { session, port } => dbgflow::demo::serve_saved(session, port),
         Command::Test {
             manifest_path,
             output_dir,
@@ -87,7 +87,7 @@ fn run_test(
     session_paths.sort();
 
     println!(
-        "Captured {} dbg session(s) in {}",
+        "Captured {} dbgflow session(s) in {}",
         session_paths.len(),
         run_dir.display()
     );
@@ -97,7 +97,7 @@ fn run_test(
 
     if session_paths.is_empty() {
         println!(
-            "No sessions were captured. Annotate tests with #[dbg::dbg_test] to emit per-test sessions."
+            "No sessions were captured. Annotate tests with #[dbg_test] from dbgflow to emit per-test sessions."
         );
         return Ok(());
     }
@@ -106,12 +106,12 @@ fn run_test(
         pick_session_to_serve(&session_paths)?.unwrap_or_else(|| session_paths[0].clone());
 
     println!("Open a captured session with:");
-    println!("  dbg serve {}", preferred_session.display());
+    println!("  dbgflow serve {}", preferred_session.display());
 
     if serve {
         let session_path = preferred_session;
         println!("Serving {}", session_path.display());
-        dbg::demo::serve_saved(session_path, port)?;
+        dbgflow::demo::serve_saved(session_path, port)?;
     }
 
     if !status.success() {

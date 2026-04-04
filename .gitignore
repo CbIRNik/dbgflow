@@ -1,3 +1,5 @@
 /target
 /artifacts
 /web/node_modules
+**/target
+**/artifacts

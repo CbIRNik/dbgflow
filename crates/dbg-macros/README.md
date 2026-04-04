@@ -1,6 +1,6 @@
 # dbgflow-macros
 
-Procedural macros for the `dbg` graph debugger ecosystem.
+Procedural macros for the `dbgflow` graph debugger ecosystem.
 
 This package exports:
 
@@ -8,4 +8,4 @@ This package exports:
 - `#[ui_debug]`
 - `#[dbg_test]`
 
-Most users should depend on `dbgflow` and import the `dbg` crate instead of wiring this crate directly.
+Most users should depend on `dbgflow` instead of wiring this crate directly.

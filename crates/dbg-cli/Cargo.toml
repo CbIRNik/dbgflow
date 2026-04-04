@@ -4,18 +4,20 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
 description = "Graph-first Rust debugger library and CLI with trace macros, test capture, and a browser UI."
 documentation = "https://docs.rs/dbgflow"
 readme = "README.md"
 keywords = ["debugger", "trace", "graph", "cli", "rust"]
 categories = ["development-tools::debugging", "command-line-utilities"]
-default-run = "dbg"
+default-run = "dbgflow"
 
 [lib]
-name = "dbg"
+name = "dbgflow"
 
 [[bin]]
-name = "dbg"
+name = "dbgflow"
 path = "src/main.rs"
 
 [package.metadata.docs.rs]
@@ -23,5 +25,5 @@ all-features = true
 
 [dependencies]
 clap.workspace = true
-dbg-core = { package = "dbgflow-core", path = "../dbg-core", version = "0.1.0" }
-dbg-macros = { package = "dbgflow-macros", path = "../dbg-macros", version = "0.1.0" }
+dbgflow-core = { path = "../dbg-core", version = "0.1.0" }
+dbgflow-macros = { path = "../dbg-macros", version = "0.1.0" }

@@ -1,10 +1,11 @@
-//! Procedural macros for the `dbg` graph debugger.
+//! Procedural macros for the `dbgflow` graph debugger.
 //!
-//! This crate is usually consumed indirectly through the top-level `dbg`
+//! This crate is usually consumed indirectly through the top-level `dbgflow`
 //! crate, which re-exports all macros.
 #![warn(missing_docs)]
 
 use proc_macro::TokenStream;
+use proc_macro_crate::{FoundCrate, crate_name};
 use quote::{ToTokens, quote};
 use syn::{Attribute, Item, ItemEnum, ItemFn, ItemStruct, parse_macro_input};
 
@@ -25,10 +26,11 @@ pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut function = parse_macro_input!(item as ItemFn);
     let ident = function.sig.ident.clone();
+    let dbgflow = dbgflow_crate_path();
 
     let argument_values = function.sig.inputs.iter().map(|arg| match arg {
         syn::FnArg::Receiver(_) => {
-            quote! { ::dbg::runtime::preview_argument("self", &self) }
+            quote! { #dbgflow::runtime::preview_argument("self", &self) }
         }
         syn::FnArg::Typed(pat_type) => {
             let pat = &pat_type.pat;
@@ -36,10 +38,10 @@ pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
             match pat.as_ref() {
                 syn::Pat::Ident(pat_ident) => {
                     let binding = &pat_ident.ident;
-                    quote! { ::dbg::runtime::preview_argument(#name, &#binding) }
+                    quote! { #dbgflow::runtime::preview_argument(#name, &#binding) }
                 }
                 _ => quote! {
-                    ::dbg::ValueSlot {
+                    #dbgflow::ValueSlot {
                         name: #name.to_owned(),
                         preview: "<non-ident pattern>".to_owned(),
                     }
@@ -50,8 +52,8 @@ pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let block = &function.block;
     function.block = Box::new(syn::parse_quote!({
-        let mut __dbg_frame = ::dbg::runtime::TraceFrame::enter(
-            ::dbg::FunctionMeta {
+        let mut __dbg_frame = #dbgflow::runtime::TraceFrame::enter(
+            #dbgflow::FunctionMeta {
                 id: concat!(module_path!(), "::", stringify!(#ident)),
                 label: stringify!(#ident),
                 module_path: module_path!(),
@@ -70,7 +72,7 @@ pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Marks a struct or enum as a UI-visible data node.
 ///
-/// Types annotated with `#[ui_debug]` implement `dbg::UiDebugValue` and can
+/// Types annotated with `#[ui_debug]` implement `dbgflow::UiDebugValue` and can
 /// emit snapshots with `value.emit_snapshot("label")`.
 #[proc_macro_attribute]
 pub fn ui_debug(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -114,6 +116,7 @@ pub fn dbg_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut function = parse_macro_input!(item as ItemFn);
     let ident = function.sig.ident.clone();
+    let dbgflow = dbgflow_crate_path();
 
     if function.sig.asyncness.is_some() {
         return syn::Error::new_spanned(
@@ -136,22 +139,22 @@ pub fn dbg_test(attr: TokenStream, item: TokenStream) -> TokenStream {
     let block = &function.block;
     function.block = Box::new(syn::parse_quote!({
         let __dbg_test_name = concat!(module_path!(), "::", #test_name);
-        ::dbg::init_session(format!("dbg test: {}", __dbg_test_name));
-        ::dbg::runtime::record_test_started_latest(__dbg_test_name);
+        #dbgflow::init_session(format!("dbgflow test: {}", __dbg_test_name));
+        #dbgflow::runtime::record_test_started_latest(__dbg_test_name);
 
         let __dbg_result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| #block));
         match __dbg_result {
             Ok(__dbg_value) => {
-                ::dbg::runtime::record_test_passed_latest(__dbg_test_name);
-                let _ = ::dbg::persist_session_from_env(__dbg_test_name);
+                #dbgflow::runtime::record_test_passed_latest(__dbg_test_name);
+                let _ = #dbgflow::persist_session_from_env(__dbg_test_name);
                 __dbg_value
             }
             Err(__dbg_panic) => {
-                ::dbg::runtime::record_test_failed_latest(
+                #dbgflow::runtime::record_test_failed_latest(
                     __dbg_test_name,
-                    ::dbg::panic_message(&*__dbg_panic),
+                    #dbgflow::panic_message(&*__dbg_panic),
                 );
-                let _ = ::dbg::persist_session_from_env(__dbg_test_name);
+                let _ = #dbgflow::persist_session_from_env(__dbg_test_name);
                 ::std::panic::resume_unwind(__dbg_panic)
             }
         }
@@ -163,13 +166,14 @@ pub fn dbg_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 fn expand_struct(mut item: ItemStruct) -> proc_macro2::TokenStream {
     maybe_add_debug_derive(&mut item.attrs);
     let ident = &item.ident;
+    let dbgflow = dbgflow_crate_path();
 
     quote! {
         #item
 
-        impl ::dbg::UiDebugValue for #ident {
-            fn ui_debug_type_meta() -> ::dbg::TypeMeta {
-                ::dbg::TypeMeta {
+        impl #dbgflow::UiDebugValue for #ident {
+            fn ui_debug_type_meta() -> #dbgflow::TypeMeta {
+                #dbgflow::TypeMeta {
                     id: concat!(module_path!(), "::", stringify!(#ident)),
                     label: stringify!(#ident),
                     module_path: module_path!(),
@@ -184,13 +188,14 @@ fn expand_struct(mut item: ItemStruct) -> proc_macro2::TokenStream {
 fn expand_enum(mut item: ItemEnum) -> proc_macro2::TokenStream {
     maybe_add_debug_derive(&mut item.attrs);
     let ident = &item.ident;
+    let dbgflow = dbgflow_crate_path();
 
     quote! {
         #item
 
-        impl ::dbg::UiDebugValue for #ident {
-            fn ui_debug_type_meta() -> ::dbg::TypeMeta {
-                ::dbg::TypeMeta {
+        impl #dbgflow::UiDebugValue for #ident {
+            fn ui_debug_type_meta() -> #dbgflow::TypeMeta {
+                #dbgflow::TypeMeta {
                     id: concat!(module_path!(), "::", stringify!(#ident)),
                     label: stringify!(#ident),
                     module_path: module_path!(),
@@ -209,5 +214,16 @@ fn maybe_add_debug_derive(attrs: &mut Vec<Attribute>) {
 
     if !has_debug {
         attrs.push(syn::parse_quote!(#[derive(Debug)]));
+    }
+}
+
+fn dbgflow_crate_path() -> proc_macro2::TokenStream {
+    match crate_name("dbgflow") {
+        Ok(FoundCrate::Itself) => quote!(crate),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = syn::Ident::new(&name, proc_macro2::Span::call_site());
+            quote!(::#ident)
+        }
+        Err(_) => quote!(::dbgflow),
     }
 }

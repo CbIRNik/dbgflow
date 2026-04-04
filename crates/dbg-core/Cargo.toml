@@ -4,14 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Core runtime, session model, and embedded UI server for the dbg graph debugger."
+homepage.workspace = true
+repository.workspace = true
+description = "Core runtime, session model, and embedded UI server for the dbgflow graph debugger."
 documentation = "https://docs.rs/dbgflow-core"
 readme = "README.md"
 keywords = ["debugger", "trace", "graph", "visualization", "rust"]
 categories = ["development-tools::debugging"]
 
 [lib]
-name = "dbg_core"
+name = "dbgflow_core"
 
 [package.metadata.docs.rs]
 all-features = true

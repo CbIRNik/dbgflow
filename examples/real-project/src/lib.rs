@@ -1,4 +1,4 @@
-use dbg::prelude::*;
+use dbgflow::prelude::*;
 
 #[ui_debug]
 pub struct Counter {

@@ -15,14 +15,14 @@ Prepared publishable package names:
 Important:
 
 - the crates.io package name is `dbgflow`
-- the Rust library crate name remains `dbg`
-- the CLI binary name remains `dbg`
+- the Rust library crate name is `dbgflow`
+- the CLI binary name is `dbgflow`
 
 That means users will write:
 
 ```toml
 [dependencies]
-dbg = { package = "dbgflow", version = "0.1.0" }
+dbgflow = "0.1.0"
 ```
 
 ## Pre-publish Checklist
@@ -55,19 +55,20 @@ cargo package -p dbgflow-macros --allow-dirty --list
 ```bash
 cargo package -p dbgflow-core --allow-dirty
 cargo package -p dbgflow-macros --allow-dirty
-cargo package -p dbgflow --allow-dirty --no-verify
+cargo package -p dbgflow --allow-dirty --list
 ```
 
 Important:
 
 - `dbgflow-core` and `dbgflow-macros` can be fully verified locally.
-- `dbgflow` depends on those packages as published registry dependencies, so full local verification of `dbgflow` will fail until the two dependency packages exist on crates.io.
+- `dbgflow` depends on those packages as published registry dependencies, so `cargo package -p dbgflow` will fail until `dbgflow-core` and `dbgflow-macros` exist on crates.io.
+- For the top-level crate, use `cargo package -p dbgflow --allow-dirty --list` as the local contents check before publication.
 
 5. Optional local install smoke test:
 
 ```bash
 cargo install --path crates/dbg-cli --force
-dbg demo --serve
+dbgflow demo --serve
 ```
 
 ## Publish Order
@@ -118,10 +119,10 @@ After public releases exist, you can add a Homebrew formula that builds the Rust
 
 ## Formula Template
 
-Create a tap repository such as `yourname/homebrew-tap` and add `Formula/dbg.rb`:
+Create a tap repository such as `yourname/homebrew-tap` and add `Formula/dbgflow.rb`:
 
 ```ruby
-class Dbg < Formula
+class Dbgflow < Formula
   desc "Graph-first Rust debugger with trace macros and a browser UI"
   homepage "https://github.com/yourname/dbgflow"
   url "https://github.com/yourname/dbgflow/archive/refs/tags/v0.1.0.tar.gz"
@@ -137,7 +138,7 @@ class Dbg < Formula
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/dbg --help")
+    assert_match "Graph-first Rust debugger", shell_output("#{bin}/dbgflow --help")
   end
 end
 ```
@@ -145,15 +146,12 @@ end
 Then users can install from the tap with:
 
 ```bash
-brew install yourname/tap/dbg
+brew install yourname/tap/dbgflow
 ```
 
 ## Release Hygiene
 
 Before the first public release, still decide:
 
-- final GitHub repository URL
-- project homepage URL, if separate from the repository
 - versioning policy
 - release tagging convention such as `v0.1.0`
-- whether to keep the CLI binary named `dbg` permanently

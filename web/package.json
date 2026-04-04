@@ -1,5 +1,5 @@
 {
-  "name": "dbg-ui",
+  "name": "dbgflow-ui",
   "private": true,
   "type": "module",
   "scripts": {

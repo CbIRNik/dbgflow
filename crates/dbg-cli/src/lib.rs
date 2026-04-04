@@ -1,24 +1,21 @@
-//! Public facade for the `dbg` graph debugger.
+//! Public facade for the `dbgflow` graph debugger.
 //!
-//! This crate is published as the `dbgflow` package on crates.io, while the
-//! Rust crate name remains `dbg`.
-//!
-//! Most users should depend on this crate instead of wiring `dbg-core` and
-//! `dbg-macros` manually.
+//! Most users should depend on this crate instead of wiring `dbgflow-core` and
+//! `dbgflow-macros` manually.
 #![warn(missing_docs)]
 
-extern crate self as dbg;
+extern crate self as dbgflow;
 
 use std::path::Path;
 
-/// Re-exported runtime and session types from `dbg-core`.
-pub use dbg_core::{
+/// Re-exported runtime and session types from `dbgflow-core`.
+pub use dbgflow_core::{
     Edge, Event, EventKind, FunctionMeta, Node, NodeKind, Session, TypeMeta, UiDebugValue,
     ValueSlot, current_session, read_session_json, reset_session, runtime, serve_session,
     write_session_json, write_session_snapshot_from_env, write_session_snapshot_in_dir,
 };
-/// Re-exported procedural macros from `dbg-macros`.
-pub use dbg_macros::{dbg_test, trace, ui_debug};
+/// Re-exported procedural macros from `dbgflow-macros`.
+pub use dbgflow_macros::{dbg_test, trace, ui_debug};
 
 /// Common imports for user code.
 pub mod prelude {
@@ -42,7 +39,7 @@ pub fn serve_current_session(host: &str, port: u16) -> std::io::Result<()> {
 
 /// Persists the current session if the `DBG_SESSION_DIR` environment variable is set.
 ///
-/// This is primarily used by `#[dbg_test]` and `dbg test`.
+/// This is primarily used by `#[dbg_test]` and `dbgflow test`.
 pub fn persist_session_from_env(
     label: impl AsRef<str>,
 ) -> std::io::Result<Option<std::path::PathBuf>> {
@@ -147,7 +144,7 @@ pub mod demo {
 
     /// Builds the in-memory demo session.
     pub fn build_session() {
-        reset_session("dbg demo: graph debugger session");
+        reset_session("dbgflow demo: graph debugger session");
 
         let mut state = PipelineState::sample();
         state.emit_snapshot("initial state");
@@ -188,10 +185,10 @@ mod tests {
             session
                 .nodes
                 .iter()
-                .any(|node| node.id == "dbg::demo::run_pipeline")
+                .any(|node| node.id == "dbgflow::demo::run_pipeline")
         );
         assert!(session.edges.iter().any(|edge| {
-            edge.from == "dbg::demo::run_pipeline" && edge.to == "dbg::demo::evaluate"
+            edge.from == "dbgflow::demo::run_pipeline" && edge.to == "dbgflow::demo::evaluate"
         }));
         assert!(
             session

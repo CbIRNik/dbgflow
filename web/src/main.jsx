@@ -218,7 +218,7 @@ function App() {
     return (
       <main className="screen">
         <section className="empty-state">
-          <div className="eyebrow">dbg</div>
+          <div className="eyebrow">dbgflow</div>
           <h1>Loading graph session</h1>
           <p>Pulling nodes, events, and test state into React Flow.</p>
         </section>

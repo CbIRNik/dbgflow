@@ -18,7 +18,7 @@ The product is split into four layers:
 ## Why this decomposition
 
 - Proc macros give an ergonomic API inside user code.
-- The `dbg` package exposes both a CLI binary and a library facade, so consumers can depend on one crate instead of wiring `dbg-core` and `dbg-macros` manually.
+- The `dbgflow` package exposes both a CLI binary and a library facade, so consumers can depend on one crate instead of wiring `dbgflow-core` and `dbgflow-macros` manually.
 - The runtime stays library-sized and can later be embedded in `cargo test`, integration tests, binaries, or a language server.
 - A JSON session format keeps the UI decoupled from execution. This makes live mode and replay mode the same product surface.
 
@@ -45,7 +45,7 @@ That is intentionally enough to prove the UI contract before adding stepping and
 
 ### Phase 2
 
-- Add `dbg test` wrapper around `cargo test --message-format json`
+- Add `dbgflow test` wrapper around `cargo test --message-format json`
 - Correlate failing test frames with traced call stack
 - Stream events over websocket instead of only after-the-fact JSON dump
 

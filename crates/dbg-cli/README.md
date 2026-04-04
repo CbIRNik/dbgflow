@@ -1,6 +1,6 @@
 # dbgflow
 
-`dbgflow` publishes the `dbg` Rust library crate and the `dbg` CLI binary.
+`dbgflow` publishes the `dbgflow` Rust library crate and the `dbgflow` CLI binary.
 
 It provides:
 
