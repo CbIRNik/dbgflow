@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react"
 import {
   Background,
   ReactFlow,
-  useNodesInitialized,
   useReactFlow,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
@@ -15,13 +14,12 @@ const MIN_CANVAS_ZOOM = 0.16
 const MAX_CANVAS_ZOOM = 1.8
 const FIT_VIEW_PADDING = 0.16
 
-function ViewportSync({ fitViewKey }) {
+function ViewportSync({ fitViewKey, nodeCount }) {
   const reactFlow = useReactFlow()
-  const nodesInitialized = useNodesInitialized()
   const lastFitViewKeyRef = useRef("")
 
   useEffect(() => {
-    if (!nodesInitialized || !fitViewKey) {
+    if (!fitViewKey || nodeCount === 0) {
       return
     }
 
@@ -31,19 +29,25 @@ function ViewportSync({ fitViewKey }) {
 
     lastFitViewKeyRef.current = fitViewKey
 
-    const frameId = window.requestAnimationFrame(() => {
-      void reactFlow.fitView({
-        duration: 480,
-        maxZoom: 1.18,
-        minZoom: MIN_CANVAS_ZOOM,
-        padding: FIT_VIEW_PADDING,
+    let firstFrameId = 0
+    let secondFrameId = 0
+
+    firstFrameId = window.requestAnimationFrame(() => {
+      secondFrameId = window.requestAnimationFrame(() => {
+        void reactFlow.fitView({
+          duration: 480,
+          maxZoom: 1.18,
+          minZoom: MIN_CANVAS_ZOOM,
+          padding: FIT_VIEW_PADDING,
+        })
       })
     })
 
     return () => {
-      window.cancelAnimationFrame(frameId)
+      window.cancelAnimationFrame(firstFrameId)
+      window.cancelAnimationFrame(secondFrameId)
     }
-  }, [fitViewKey, nodesInitialized, reactFlow])
+  }, [fitViewKey, nodeCount, reactFlow])
 
   return null
 }
@@ -54,6 +58,7 @@ export default function WorkflowCanvas({
   fitViewKey,
   nodes,
   onNodesChange,
+  onNodeSelect,
   onPaneClick,
 }) {
   return (
@@ -67,14 +72,16 @@ export default function WorkflowCanvas({
         nodes={nodes}
         nodesConnectable={false}
         nodesDraggable={canvasMode === "move-nodes"}
+        onNodeClick={(_, node) => {
+          onNodeSelect?.(node.id)
+        }}
         onNodesChange={onNodesChange}
         onPaneClick={onPaneClick}
-        onlyRenderVisibleElements
         panOnDrag={canvasMode === "pan-canvas"}
         proOptions={{ hideAttribution: true }}
         selectNodesOnDrag={false}
       >
-        <ViewportSync fitViewKey={fitViewKey} />
+        <ViewportSync fitViewKey={fitViewKey} nodeCount={nodes.length} />
         <Background color="#1e1e1e" gap={22} size={1.1} variant="dots" />
       </ReactFlow>
     </section>

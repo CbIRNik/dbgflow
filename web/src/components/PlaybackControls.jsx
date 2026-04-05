@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from "react"
-import { Gauge, Pause, Play, StepBack, StepForward, Workflow } from "lucide-react"
+import { Gauge, Menu, Pause, Play, StepBack, StepForward, Workflow } from "lucide-react"
 import { PLAYBACK_SPEEDS } from "../utils/constants.js"
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -78,7 +85,53 @@ function SpeedDropdown({ onSpeedChange, playbackSpeed }) {
   )
 }
 
+function PlaybackOverflowMenu({
+  canvasMode,
+  onCanvasModeChange,
+  onSpeedChange,
+  playbackSpeed,
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          aria-label="More playback controls"
+          className="playback-bar__menu-button"
+          size="icon"
+          type="button"
+          variant="outline"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 border-border bg-popover/98">
+        <DropdownMenuLabel>Playback Speed</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={(value) => onSpeedChange(Number(value))}
+          value={String(playbackSpeed)}
+        >
+          {PLAYBACK_SPEEDS.map((speed) => (
+            <DropdownMenuRadioItem key={speed} value={String(speed)}>
+              {speed}x
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Canvas Mode</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={onCanvasModeChange}
+          value={canvasMode}
+        >
+          <DropdownMenuRadioItem value="pan-canvas">Pan</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="move-nodes">Nodes</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export default function PlaybackControls({
+  availableWidth,
   canvasMode,
   currentStepLabel,
   hasDetailsPanel,
@@ -99,6 +152,8 @@ export default function PlaybackControls({
   totalEvents,
 }) {
   const currentStep = Math.max(1, playbackIndex + 1)
+  const shouldStackLayout = hasDetailsPanel && availableWidth < 1120
+  const shouldCollapseAuxControls = hasDetailsPanel && availableWidth < 920
   const [displayStep, setDisplayStep] = useState(currentStep)
   const displayStepRef = useRef(currentStep)
 
@@ -153,7 +208,14 @@ export default function PlaybackControls({
 
   return (
     <footer
-      className={`playback-bar ${hasDetailsPanel ? "playback-bar--with-panel" : ""}`}
+      className={[
+        "playback-bar",
+        hasDetailsPanel ? "playback-bar--with-panel" : "",
+        shouldStackLayout ? "playback-bar--stacked" : "",
+        shouldCollapseAuxControls ? "playback-bar--compact" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <div className="playback-bar__controls">
         <Button
@@ -199,34 +261,47 @@ export default function PlaybackControls({
             />
           </div>
 
-          <SpeedDropdown
-            onSpeedChange={onSpeedChange}
-            playbackSpeed={playbackSpeed}
-          />
+          <div className="playback-bar__toolbar-actions">
+            {shouldCollapseAuxControls ? (
+              <PlaybackOverflowMenu
+                canvasMode={canvasMode}
+                onCanvasModeChange={onCanvasModeChange}
+                onSpeedChange={onSpeedChange}
+                playbackSpeed={playbackSpeed}
+              />
+            ) : (
+              <>
+                <SpeedDropdown
+                  onSpeedChange={onSpeedChange}
+                  playbackSpeed={playbackSpeed}
+                />
 
-          <div
-            aria-label="Canvas interaction mode"
-            className="playback-bar__mode-toggle"
-            role="group"
-          >
-            <Button
-              className={`playback-bar__mode-button ${canvasMode === "pan-canvas" ? "is-active" : ""}`}
-              onClick={() => onCanvasModeChange("pan-canvas")}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Pan
-            </Button>
-            <Button
-              className={`playback-bar__mode-button ${canvasMode === "move-nodes" ? "is-active" : ""}`}
-              onClick={() => onCanvasModeChange("move-nodes")}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Nodes
-            </Button>
+                <div
+                  aria-label="Canvas interaction mode"
+                  className="playback-bar__mode-toggle"
+                  role="group"
+                >
+                  <Button
+                    className={`playback-bar__mode-button ${canvasMode === "pan-canvas" ? "is-active" : ""}`}
+                    onClick={() => onCanvasModeChange("pan-canvas")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Pan
+                  </Button>
+                  <Button
+                    className={`playback-bar__mode-button ${canvasMode === "move-nodes" ? "is-active" : ""}`}
+                    onClick={() => onCanvasModeChange("move-nodes")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Nodes
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

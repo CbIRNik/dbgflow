@@ -202,6 +202,9 @@
   .start {
     inset-inline-start: var(--spacing);
   }
+  .end {
+    inset-inline-end: var(--spacing);
+  }
   .right-2 {
     right: calc(var(--spacing) * 2);
   }
@@ -297,6 +300,9 @@
   }
   .w-10 {
     width: calc(var(--spacing) * 10);
+  }
+  .w-56 {
+    width: calc(var(--spacing) * 56);
   }
   .w-\[1px\] {
     width: 1px;

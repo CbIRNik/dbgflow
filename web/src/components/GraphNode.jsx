@@ -51,6 +51,7 @@ function GraphNode({ data, selected }) {
       aria-pressed={isSelected}
       className={[
         "workflow-node",
+        "nopan",
         isSelected ? "is-selected" : "",
         executionStateClassName,
         interactionModeClassName,
@@ -121,7 +122,7 @@ function GraphNode({ data, selected }) {
 
       {data.canRunChain ? (
         <Button
-          className="workflow-node__action gap-2"
+          className="workflow-node__action nodrag nopan gap-2"
           onClick={(event) => {
             event.stopPropagation()
             data.onRunChain(node.id)

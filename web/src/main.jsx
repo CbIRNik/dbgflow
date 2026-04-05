@@ -79,6 +79,13 @@ function App() {
   const chainRuns = useMemo(() => deriveChainRuns(session), [session])
   const isRestoringState = useRef(false)
   const maxPanelWidth = useMemo(() => getMaxPanelWidth(viewportWidth), [viewportWidth])
+  const playbackBarWidth = useMemo(() => {
+    if (!isDetailsOpen || !detailsNodeId) {
+      return viewportWidth - 24
+    }
+
+    return Math.max(320, viewportWidth - detailsPanelWidth - 36)
+  }, [detailsNodeId, detailsPanelWidth, isDetailsOpen, viewportWidth])
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -463,6 +470,7 @@ function App() {
           fitViewKey={fitViewKey}
           nodes={nodes}
           onNodesChange={onNodesChange}
+          onNodeSelect={handleOpenDetails}
           onPaneClick={() => {
             if (!isDetailsOpen) {
               setSelectedNodeId("")
@@ -472,6 +480,7 @@ function App() {
 
         {sortedEvents.length > 0 ? (
           <PlaybackControls
+            availableWidth={playbackBarWidth}
             canvasMode={canvasMode}
             currentStepLabel={activeStepLabel}
             hasDetailsPanel={isDetailsOpen && Boolean(detailsNodeId)}
