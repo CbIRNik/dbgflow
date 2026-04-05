@@ -137,6 +137,10 @@ export function useGraphLayout({
       type: "inspector",
       width: NODE_DIMENSIONS.width,
       height: NODE_DIMENSIONS.height,
+      measured: {
+        width: NODE_DIMENSIONS.width,
+        height: NODE_DIMENSIONS.height,
+      },
       selected: selectedNodeId === node.id,
       position: nodePositions[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 },
       sourcePosition: Position.Right,
@@ -181,8 +185,21 @@ export function useGraphLayout({
     )
   }, [graphNodes, layout, nodePositions])
 
+  const pendingPositionsRef = useRef(null)
+
   const onNodesChange = useCallback((changes) => {
     if (!graphNodes.length || canvasModeRef.current !== "move-nodes") {
+      return
+    }
+
+    const hasPositionChange = changes.some((c) => c.type === "position")
+    if (!hasPositionChange) {
+      return
+    }
+
+    // Only update app state if dragging finished. WorkflowCanvas handles visual node tracking locally.
+    const isDragFinished = changes.some((c) => c.type === "position" && c.dragging === false)
+    if (!isDragFinished) {
       return
     }
 
@@ -190,9 +207,20 @@ export function useGraphLayout({
       const currentNodes = buildNodesForChangeSet(graphNodes, currentPositions, layout)
       const nextNodes = applyNodeChanges(changes, currentNodes)
 
-      return Object.fromEntries(
-        nextNodes.map((node) => [node.id, roundPosition(node.position)]),
-      )
+      let hasChanges = false
+      const nextPositions = {}
+
+      for (const node of nextNodes) {
+        const newPos = roundPosition(node.position)
+        nextPositions[node.id] = newPos
+        
+        const oldPos = currentPositions[node.id]
+        if (!oldPos || oldPos.x !== newPos.x || oldPos.y !== newPos.y) {
+          hasChanges = true
+        }
+      }
+
+      return hasChanges ? nextPositions : currentPositions
     })
   }, [graphNodes, layout])
 

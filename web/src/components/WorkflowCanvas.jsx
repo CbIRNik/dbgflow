@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react"
-import { Background, ReactFlow, useNodesInitialized, useReactFlow } from "@xyflow/react"
+import { useEffect, useRef, useState, useCallback } from "react"
+import { Background, ReactFlow, useNodesInitialized, useReactFlow, applyNodeChanges } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import GraphNode from "./GraphNode"
+import { useUIStore } from "../store"
 
 const nodeTypes = {
   inspector: GraphNode,
@@ -54,14 +55,27 @@ function ViewportSync({ fitViewKey, nodeCount }) {
 }
 
 export default function WorkflowCanvas({
-  canvasMode,
   edges,
   fitViewKey,
-  nodes,
-  onNodesChange,
+  nodes: initialNodes,
+  onNodesChange: externalOnNodesChange,
   onNodeSelect,
   onPaneClick,
 }) {
+  const canvasMode = useUIStore((state) => state.canvasMode)
+  const [localNodes, setLocalNodes] = useState(initialNodes)
+
+  // Sync external nodes when they change significantly (e.g. graph reload)
+  useEffect(() => {
+    setLocalNodes(initialNodes)
+  }, [initialNodes])
+
+  const onNodesChange = useCallback((changes) => {
+    setLocalNodes((nds) => applyNodeChanges(changes, nds))
+    // Pass changes upstream so positions can be saved (without causing heavy re-renders)
+    externalOnNodesChange?.(changes)
+  }, [externalOnNodesChange])
+  
   return (
     <section className={`workflow-stage workflow-stage--full workflow-stage--${canvasMode}`}>
       <ReactFlow
@@ -73,7 +87,7 @@ export default function WorkflowCanvas({
         maxZoom={MAX_CANVAS_ZOOM}
         minZoom={MIN_CANVAS_ZOOM}
         nodeTypes={nodeTypes}
-        nodes={nodes}
+        nodes={localNodes}
         nodesConnectable={false}
         nodesDraggable={canvasMode === "move-nodes"}
         onNodeClick={(_, node) => {
@@ -85,10 +99,9 @@ export default function WorkflowCanvas({
         }}
         onPaneClick={onPaneClick}
         panOnDrag={canvasMode === "pan-canvas"}
-        proOptions={{ hideAttribution: true }}
         selectNodesOnDrag={false}
       >
-        <ViewportSync fitViewKey={fitViewKey} nodeCount={nodes.length} />
+        <ViewportSync fitViewKey={fitViewKey} nodeCount={localNodes.length} />
         <Background color="#1e1e1e" gap={22} size={1.1} variant="dots" />
       </ReactFlow>
     </section>

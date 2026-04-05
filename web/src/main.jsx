@@ -4,7 +4,7 @@ import "prismjs/themes/prism-tomorrow.css"
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import "./styles.css"
-import { usePipelineStore } from "./store"
+import { usePipelineStore, useUIStore, useSessionStore, usePlaybackStore, DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH } from "./store"
 import { triggerRerun as triggerServerRerun } from "./utils/api.js"
 import { deriveChainRuns } from "./utils/chainUtils.js"
 import {
@@ -26,10 +26,7 @@ import {
 import { shortenPreview } from "./utils/formatUtils.js"
 
 const RUN_ROUTE_PREFIX = "#/pipelines/"
-const DEFAULT_PANEL_WIDTH = 500
-const MIN_PANEL_WIDTH = 400
 const PANEL_MAX_WIDTH_RATIO = 0.7
-const DEFAULT_CANVAS_MODE = "pan-canvas"
 
 function getMaxPanelWidth(viewportWidth) {
   return Math.max(MIN_PANEL_WIDTH + 120, Math.floor(viewportWidth * PANEL_MAX_WIDTH_RATIO))
@@ -63,18 +60,39 @@ function buildRunRoute(runId) {
 }
 
 function App() {
-  const { session, serverStatus, error, setServerStatus } = useSession()
+  // Session state from zustand
+  const { session, serverStatus, error } = useSession()
+  const setServerStatus = useSessionStore((state) => state.setServerStatus)
+  
+  // UI state from zustand
+  const selectedNodeId = useUIStore((state) => state.selectedNodeId)
+  const detailsNodeId = useUIStore((state) => state.detailsNodeId)
+  const detailsPanelWidth = useUIStore((state) => state.detailsPanelWidth)
+  const canvasMode = useUIStore((state) => state.canvasMode)
+  const viewportWidth = useUIStore((state) => state.viewportWidth)
+  const isDetailsOpen = useUIStore((state) => state.isDetailsOpen)
+  
+  const setSelectedNodeId = useUIStore((state) => state.setSelectedNodeId)
+  const setDetailsNodeId = useUIStore((state) => state.setDetailsNodeId)
+  const setDetailsPanelWidth = useUIStore((state) => state.setDetailsPanelWidth)
+  const setViewportWidth = useUIStore((state) => state.setViewportWidth)
+  const openDetails = useUIStore((state) => state.openDetails)
+  const dismissDetails = useUIStore((state) => state.dismissDetails)
+  
+  // Playback state from zustand (via usePlayback hook)
+  const setRequestedStartNodeId = usePlaybackStore((state) => state.setRequestedStartNodeId)
+  const setPlaybackIndex = usePlaybackStore((state) => state.setPlaybackIndex)
+  const pause = usePlaybackStore((state) => state.pause)
+  const play = usePlaybackStore((state) => state.play)
+  
+  // Pipeline store
   const getPipelineState = usePipelineStore((state) => state.getPipelineState)
   const setPipelineState = usePipelineStore((state) => state.setPipelineState)
+  
+  // Local state
   const [routeRunId, setRouteRunId] = useState(() => readRunRouteId())
-  const [selectedNodeId, setSelectedNodeId] = useState("")
-  const [detailsNodeId, setDetailsNodeId] = useState("")
-  const [detailsPanelWidth, setDetailsPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
-  const [canvasMode, setCanvasMode] = useState(DEFAULT_CANVAS_MODE)
   const [savedNodePositions, setSavedNodePositions] = useState(null)
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window === "undefined" ? 1440 : window.innerWidth,
-  )
+  
   const chainRuns = useMemo(() => deriveChainRuns(session), [session])
   const isRestoringState = useRef(false)
   const maxPanelWidth = useMemo(() => getMaxPanelWidth(viewportWidth), [viewportWidth])
@@ -97,7 +115,7 @@ function App() {
       window.removeEventListener("hashchange", syncRouteRunId)
       window.removeEventListener("resize", syncViewportWidth)
     }
-  }, [])
+  }, [setViewportWidth])
 
   const navigateToRun = useCallback((runId, replace = false) => {
     localStorage.setItem("dbgflow_last_run_id", runId)
@@ -130,9 +148,6 @@ function App() {
 
     return chainRuns.find((run) => run.id === routeRunId) ?? chainRuns[0]
   }, [chainRuns, routeRunId])
-  const isDetailsOpen = usePipelineStore((state) =>
-    selectedRun?.id ? state.getPipelineState(selectedRun.id).isDetailsOpen : false,
-  )
 
   const sortedEvents = useMemo(() => {
     if (!selectedRun) {
@@ -161,13 +176,9 @@ function App() {
     isPlaying,
     playbackIndex,
     playbackSpeed,
-    pause,
-    play,
     stepBackward,
     stepForward,
     setSpeed,
-    setPlaybackIndex,
-    setRequestedStartNodeId,
   } = usePlayback({
     sortedEvents,
     fullGraphModel,
@@ -190,24 +201,22 @@ function App() {
   })
 
   const handleOpenDetails = useCallback((nodeId) => {
-    setSelectedNodeId(nodeId)
-    setDetailsNodeId(nodeId)
+    openDetails(nodeId)
     if (selectedRun?.id) {
       setPipelineState(selectedRun.id, {
         isDetailsOpen: true,
       })
     }
-  }, [selectedRun?.id, setPipelineState])
+  }, [selectedRun?.id, setPipelineState, openDetails])
 
   const handleDismissDetails = useCallback(() => {
-    setSelectedNodeId("")
-    setDetailsNodeId("")
+    dismissDetails()
     if (selectedRun?.id) {
       setPipelineState(selectedRun.id, {
         isDetailsOpen: false,
       })
     }
-  }, [selectedRun?.id, setPipelineState])
+  }, [selectedRun?.id, setPipelineState, dismissDetails])
 
   useEffect(() => {
     if (!isDetailsOpen && !selectedNodeId) {
@@ -386,8 +395,8 @@ function App() {
   }, [detailsPanelWidth, isDetailsOpen, viewportWidth])
 
   useEffect(() => {
-    setDetailsPanelWidth((currentWidth) => clampPanelWidth(currentWidth, viewportWidth))
-  }, [viewportWidth])
+    setDetailsPanelWidth(clampPanelWidth(detailsPanelWidth, viewportWidth))
+  }, [viewportWidth, detailsPanelWidth, setDetailsPanelWidth])
 
   useEffect(() => {
     if (!selectedRun) {
@@ -400,7 +409,7 @@ function App() {
     setDetailsPanelWidth(
       clampPanelWidth(savedState.panelWidth ?? DEFAULT_PANEL_WIDTH, viewportWidth),
     )
-    setCanvasMode(savedState.canvasMode ?? DEFAULT_CANVAS_MODE)
+    useUIStore.setState({ canvasMode: savedState.canvasMode ?? "pan-canvas" })
     setSavedNodePositions(savedState.nodePositions ?? null)
     setPlaybackIndex(
       Number.isFinite(savedState.playbackIndex) ? savedState.playbackIndex : -1,
@@ -416,7 +425,7 @@ function App() {
     setTimeout(() => {
       isRestoringState.current = false
     }, 0)
-  }, [getPipelineState, selectedRun?.id, setPlaybackIndex, setSpeed, setRequestedStartNodeId, viewportWidth])
+  }, [getPipelineState, selectedRun?.id, setPlaybackIndex, setSpeed, setRequestedStartNodeId, viewportWidth, setDetailsPanelWidth, setSelectedNodeId, setDetailsNodeId])
 
   useEffect(() => {
     if (!selectedRun || isRestoringState.current || !nodePositionSnapshot) {
@@ -471,10 +480,10 @@ function App() {
     [navigateToRun, selectedRun?.id],
   )
 
-  const handleStepChange = (newIndex) => {
+  const handleStepChange = useCallback((newIndex) => {
     setPlaybackIndex(newIndex)
     pause()
-  }
+  }, [setPlaybackIndex, pause])
 
   const currentNodeData = useMemo(() => {
     if (!resolvedDetailsNodeId || !graphModel) {
@@ -539,7 +548,6 @@ function App() {
         ) : null}
 
         <WorkflowCanvas
-          canvasMode={canvasMode}
           edges={edges}
           fitViewKey={fitViewKey}
           nodes={nodes}
@@ -551,20 +559,9 @@ function App() {
         {sortedEvents.length > 0 ? (
           <PlaybackControls
             availableWidth={playbackBarWidth}
-            canvasMode={canvasMode}
             currentStepLabel={activeStepLabel}
-            hasDetailsPanel={isDetailsOpen}
-            isPlaying={isPlaying}
-            onPause={pause}
-            onPlay={play}
-            onCanvasModeChange={setCanvasMode}
             onRunSelect={handleSelectRun}
-            onSkipEnd={stepForward}
-            onSkipStart={stepBackward}
-            onSpeedChange={setSpeed}
             onStepChange={handleStepChange}
-            playbackIndex={effectivePlaybackIndex}
-            playbackSpeed={playbackSpeed}
             runs={chainRuns}
             selectedRun={selectedRun}
             stepOptions={stepOptions}
