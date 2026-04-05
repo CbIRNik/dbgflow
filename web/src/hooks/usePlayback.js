@@ -159,7 +159,7 @@ export function usePlayback({
   }, [resetTimelineClock])
 
   const stepBackward = useCallback(() => {
-    updatePlaybackIndex(Math.max(-1, playbackIndexRef.current - 1))
+    updatePlaybackIndex(Math.max(0, playbackIndexRef.current - 1))
     setIsPlaying(false)
   }, [updatePlaybackIndex])
 

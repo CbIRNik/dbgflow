@@ -14,6 +14,13 @@ const KIND_CONFIG = {
   },
 }
 
+function formatNodeLabel(node) {
+  if (node.kind === "function") {
+    return `${node.label}() {}`
+  }
+  return node.label
+}
+
 export default function GraphNode({ data, selected }) {
   const node = data.node
   const kind = KIND_CONFIG[node.kind] ?? KIND_CONFIG.function
@@ -76,7 +83,7 @@ export default function GraphNode({ data, selected }) {
 
       <div className="workflow-node__body">
         <span className="workflow-node__kind">{kind.icon}</span>
-        <span className="workflow-node__name">{node.label}</span>
+        <span className="workflow-node__name">{formatNodeLabel(node)}</span>
         <span className={statusClassName} />
       </div>
 

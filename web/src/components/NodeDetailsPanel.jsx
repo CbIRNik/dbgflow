@@ -66,28 +66,73 @@ function sectionTitle(title) {
   )
 }
 
+function highlightData(content) {
+  if (!content || !window.Prism) return null
+
+  const trimmed = content.trim()
+
+  // Try JSON first (valid JSON objects/arrays)
+  try {
+    JSON.parse(content)
+    return window.Prism.highlight(
+      content,
+      window.Prism.languages.javascript,
+      "javascript"
+    )
+  } catch {
+    // Not valid JSON, continue
+  }
+
+  // Check for Rust-like data structures (structs, enums, tuples)
+  // Patterns: SomeStruct { ... }, SomeEnum::Variant, (a, b, c)
+  const hasRustPatterns = /^[A-Z][a-zA-Z0-9]*\s*[{(]|::|^\(.*\)$/.test(trimmed)
+  if (hasRustPatterns && window.Prism.languages.rust) {
+    return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
+  }
+
+  // Check for simple key-value or object-like structures (even without valid JSON)
+  // Patterns: { key: value }, key: value, [items]
+  const hasStructurePatterns = /^[\[{]|:\s*["\d\[{]|=>\s*/.test(trimmed)
+  if (hasStructurePatterns) {
+    return window.Prism.highlight(
+      content,
+      window.Prism.languages.javascript,
+      "javascript"
+    )
+  }
+
+  // Check for Rust type names (primitives, generics, references)
+  // Patterns: i32, String, Vec<T>, Option<T>, Result<T, E>, &str, &mut T, Box<T>
+  const isRustType = /^(&\s*(mut\s+)?)?([iu](8|16|32|64|128|size)|f(32|64)|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell|HashMap|HashSet|BTreeMap|BTreeSet|Cow|Pin|PhantomData)(<.*>)?$/.test(trimmed)
+    || /^[A-Z][a-zA-Z0-9]*(<.*>)?$/.test(trimmed)  // Custom type names like MyStruct<T>
+    || /^&(mut\s+)?[a-zA-Z]/.test(trimmed)  // References like &str, &mut T
+    || /^\(.*\)$/.test(trimmed)  // Tuples like (i32, String)
+  if (isRustType && window.Prism.languages.rust) {
+    return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
+  }
+
+  // For anything else with potential code-like content, use javascript highlighting
+  // This catches numbers, strings, booleans, etc.
+  if (/^[\d"'\-\[{(]|true|false|null|None|Some/.test(trimmed)) {
+    return window.Prism.highlight(
+      content,
+      window.Prism.languages.javascript,
+      "javascript"
+    )
+  }
+
+  // No highlighting for plain text
+  return null
+}
+
 function recordList(items, emptyLabel) {
   if (!items.length) {
     return <div className="details-panel__empty">{emptyLabel}</div>
   }
 
   return items.map((item, index) => {
-    let highlighted = item.preview
-    if (window.Prism && item.preview) {
-      try {
-        // Try to parse as JSON first
-        JSON.parse(item.preview)
-        highlighted = window.Prism.highlight(
-          item.preview,
-          window.Prism.languages.javascript,
-          "javascript"
-        )
-      } catch {
-        // If not valid JSON, just use plain text
-        highlighted = item.preview
-      }
-    }
-    
+    const highlighted = highlightData(item.preview)
+
     return (
       <div
         className="details-panel__record"
@@ -97,7 +142,7 @@ function recordList(items, emptyLabel) {
           <span>{item.name}</span>
           {item.title ? <span>{item.title}</span> : null}
         </div>
-        {typeof highlighted === 'string' && highlighted !== item.preview ? (
+        {highlighted ? (
           <pre className="details-panel__record-preview">
             <code dangerouslySetInnerHTML={{ __html: highlighted }} />
           </pre>
@@ -166,7 +211,7 @@ export default function NodeDetailsPanel({ nodeData, onClose }) {
                 </button>
                 {isCodeOpen && (
                   <div className="details-panel__records">
-                    <pre className="details-panel__record-preview language-rust bg-neutral-900 border border-neutral-800 p-3 rounded-md whitespace-pre-wrap break-all text-[11px]">
+                    <pre className="details-panel__source-code language-rust bg-neutral-900 border border-neutral-800 p-3 rounded-md text-[11px]">
                       <code
                         className="language-rust"
                         dangerouslySetInnerHTML={{

@@ -30,7 +30,7 @@ function ViewportSync({ fitViewKey }) {
 
     const frameId = window.requestAnimationFrame(() => {
       void reactFlow.fitView({
-        duration: 240,
+        duration: 480,
         maxZoom: 1.18,
         minZoom: 0.42,
         padding: 0.22,

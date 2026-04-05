@@ -1,142 +1,79 @@
-import {
-  ChevronDown,
-  Gauge,
-  Pause,
-  Play,
-  StepBack,
-  StepForward,
-  Workflow,
-} from "lucide-react"
+import { Gauge, Pause, Play, StepBack, StepForward, Workflow } from "lucide-react"
 import { PLAYBACK_SPEEDS } from "../utils/constants.js"
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-  ScrollArea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Separator,
   Slider,
 } from "./ui"
 
 function StepDropdown({ currentStep, onStepChange, stepOptions, totalEvents }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          className="playback-bar__picker gap-1.5 text-xs"
-          size="sm"
-          type="button"
-          variant="outline"
-        >
+    <Select
+      onValueChange={(value) => onStepChange(Number(value))}
+      value={String(Math.max(0, currentStep - 1))}
+    >
+      <SelectTrigger className="playback-bar__picker h-8 gap-1.5 text-xs">
+        <SelectValue>
           Step {currentStep} / {totalEvents}
-          <ChevronDown className="h-3 w-3 opacity-70" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="w-[320px] border-border bg-popover/98 p-1"
-      >
-        <ScrollArea className="max-h-72">
-          <DropdownMenuRadioGroup
-            onValueChange={(value) => onStepChange(Number(value))}
-            value={String(Math.max(0, currentStep - 1))}
-          >
-            {stepOptions.map((step) => (
-              <DropdownMenuRadioItem
-                className="py-2 text-sm"
-                key={step.value}
-                value={String(step.value)}
-              >
-                {step.label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </ScrollArea>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="max-h-72 w-[320px] border-border bg-popover/98">
+        {stepOptions.map((step) => (
+          <SelectItem className="py-2 text-sm" key={step.value} value={String(step.value)}>
+            {step.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
 function PipelineDropdown({ onRunSelect, runs, selectedRun }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          className="playback-bar__picker gap-1.5 text-xs"
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <Workflow className="h-3 w-3" />
+    <Select onValueChange={onRunSelect} value={selectedRun?.id ?? ""}>
+      <SelectTrigger className="playback-bar__picker h-8 gap-1.5 text-xs">
+        <Workflow className="h-3 w-3 shrink-0" />
+        <SelectValue placeholder="Pipeline">
           {selectedRun?.label ?? "Pipeline"}
-          <ChevronDown className="h-3 w-3 opacity-70" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="w-[260px] border-border bg-popover/98 p-1"
-      >
-        <ScrollArea className="max-h-72">
-          <DropdownMenuRadioGroup
-            onValueChange={onRunSelect}
-            value={selectedRun?.id ?? ""}
-          >
-            {runs.map((run) => (
-              <DropdownMenuRadioItem className="py-2" key={run.id} value={run.id}>
-                <div className="flex w-full items-center justify-between gap-3">
-                  <span className="truncate">{run.label}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {run.events.length}
-                  </span>
-                </div>
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </ScrollArea>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="max-h-72 w-[260px] border-border bg-popover/98">
+        {runs.map((run) => (
+          <SelectItem className="py-2" key={run.id} value={run.id}>
+            <div className="flex w-full items-center justify-between gap-3">
+              <span className="truncate">{run.label}</span>
+              <span className="text-xs text-muted-foreground">{run.events.length}</span>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
 function SpeedDropdown({ onSpeedChange, playbackSpeed }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          className="playback-bar__picker gap-1.5 text-xs"
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <Gauge className="h-3 w-3" />
-          {playbackSpeed}x
-          <ChevronDown className="h-3 w-3 opacity-70" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-[120px] border-border bg-popover/98 p-1"
-      >
-        <ScrollArea className="max-h-72">
-          <DropdownMenuRadioGroup
-            onValueChange={(value) => onSpeedChange(Number(value))}
-            value={String(playbackSpeed)}
-          >
-            {PLAYBACK_SPEEDS.map((speed) => (
-              <DropdownMenuRadioItem
-                className="py-2"
-                key={speed}
-                value={String(speed)}
-              >
-                {speed}x
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </ScrollArea>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Select
+      onValueChange={(value) => onSpeedChange(Number(value))}
+      value={String(playbackSpeed)}
+    >
+      <SelectTrigger className="playback-bar__picker h-8 w-[100px] gap-1.5 text-xs">
+        <Gauge className="h-3 w-3 shrink-0" />
+        <SelectValue>{playbackSpeed}x</SelectValue>
+      </SelectTrigger>
+      <SelectContent className="max-h-72 w-[100px] border-border bg-popover/98">
+        {PLAYBACK_SPEEDS.map((speed) => (
+          <SelectItem className="py-2" key={speed} value={String(speed)}>
+            {speed}x
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 

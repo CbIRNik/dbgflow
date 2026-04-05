@@ -167,7 +167,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!activePlaybackNodeId) {
+    if (!activePlaybackNodeId || isRestoringState.current) {
       return
     }
 
@@ -282,11 +282,14 @@ function App() {
     // Restore saved state for this pipeline
     isRestoringState.current = true
     const savedState = getPipelineState(selectedRun.id)
-    setSelectedNodeId("")
+    // Don't restore selectedNodeId - let it be driven by activePlaybackNodeId
+    // Only restore isDetailsOpen when switching pipelines
     setIsDetailsOpen(savedState.isDetailsOpen)
     setPlaybackIndex(savedState.playbackIndex)
     setSpeed(savedState.playbackSpeed)
     setRequestedStartNodeId("")
+    // Reset selectedNodeId when switching pipelines - will be set by activePlaybackNodeId effect
+    setSelectedNodeId("")
     // Use setTimeout to ensure state is set before we start saving again
     setTimeout(() => {
       isRestoringState.current = false
@@ -294,6 +297,8 @@ function App() {
   }, [getPipelineState, selectedRun?.id, setPlaybackIndex, setSpeed, setRequestedStartNodeId])
 
   // Save state when it changes
+  // Note: Don't save selectedNodeId - it's transient and driven by activePlaybackNodeId
+  // Only save isDetailsOpen, playbackIndex, playbackSpeed which are user preferences
   useEffect(() => {
     if (!selectedRun || isRestoringState.current) return
     setPipelineState(selectedRun.id, {

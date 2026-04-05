@@ -6,6 +6,7 @@ export const usePipelineStore = create(
   persist(
     (set, get) => ({
       // Map of pipelineId -> { playbackIndex, isDetailsOpen, playbackSpeed }
+      // Note: selectedNodeId is NOT persisted - it's transient and driven by activePlaybackNodeId
       pipelineStates: {},
 
       // Get state for a specific pipeline

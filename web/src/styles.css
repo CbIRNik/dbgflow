@@ -202,6 +202,20 @@ pre {
   font-size: 13px;
 }
 
+/* Source code display - horizontal scroll like code editors */
+.details-panel__source-code {
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 400px;
+  line-height: 1.5;
+  font-size: 11px;
+  tab-size: 4;
+}
+
+.details-panel__source-code code {
+  white-space: pre;
+}
+
 .details-panel__empty {
   color: var(--muted);
   font-size: 12px;
@@ -236,9 +250,11 @@ pre {
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.26);
   cursor: pointer;
   transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
+    transform 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 550ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 550ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 550ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 400ms ease-out;
 }
 
 .workflow-node::before {
@@ -355,6 +371,10 @@ pre {
   background: #525252;
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.03);
   flex-shrink: 0;
+  transition:
+    background 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .workflow-node__status--running-static {
@@ -408,9 +428,10 @@ pre {
 .workflow-edge .react-flow__edge-path {
   stroke-linecap: round;
   transition:
-    stroke-width 180ms ease,
-    opacity 180ms ease,
-    stroke 180ms ease;
+    stroke-width 450ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 450ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 450ms cubic-bezier(0.4, 0, 0.2, 1),
+    filter 450ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .workflow-edge.is-active .react-flow__edge-path {
@@ -501,11 +522,15 @@ pre {
 .playback-bar__slider [data-slot="slider-range"],
 .playback-bar__slider .bg-primary {
   background: rgba(255, 255, 255, 0.88);
+  transition: width 350ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .playback-bar__slider [data-slot="slider-thumb"],
 .playback-bar__slider .border-primary {
   border-color: rgba(255, 255, 255, 0.92);
+  transition: left 350ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 350ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms ease-out;
 }
 
 .playback-bar__slider .bg-background {
