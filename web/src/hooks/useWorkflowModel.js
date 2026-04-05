@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EVENT_LABEL } from "../utils/constants.js";
 import {
   activeEdgesForEvent,
   buildGraphModel,
   focusNodeIdForEvent
 } from "../utils/graphUtils.js";
+
+const HANDOFF_DURATION_MS = 520;
 
 export function useWorkflowModel({
   fullGraphModel,
@@ -52,6 +54,38 @@ export function useWorkflowModel({
     () => (graphModel && activeEvent ? activeEdgesForEvent(activeEvent, graphModel) : new Set()),
     [graphModel, activeEvent]
   );
+  const [handoff, setHandoff] = useState(null);
+  const previousPlaybackNodeIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!graphModel || !activeEvent || !activePlaybackNodeId) {
+      previousPlaybackNodeIdRef.current = activePlaybackNodeId;
+      setHandoff(null);
+      return;
+    }
+
+    const previousNodeId = previousPlaybackNodeIdRef.current;
+    previousPlaybackNodeIdRef.current = activePlaybackNodeId;
+
+    if (!previousNodeId || previousNodeId === activePlaybackNodeId) {
+      return;
+    }
+
+    const nextHandoff = {
+      edgeIds: activeEdgesForEvent(activeEvent, graphModel),
+      from: previousNodeId,
+      to: activePlaybackNodeId,
+    };
+
+    setHandoff(nextHandoff);
+    const timeoutId = window.setTimeout(() => {
+      setHandoff((current) => (current === nextHandoff ? null : current));
+    }, HANDOFF_DURATION_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeEdgeIds, activeEvent, activePlaybackNodeId, graphModel]);
 
   const activeStepLabel = useMemo(() => {
     if (!graphModel || !activeEvent) {
@@ -103,6 +137,7 @@ export function useWorkflowModel({
     activeStepLabel,
     effectivePlaybackIndex,
     graphModel,
+    handoff,
     stepOptions
   };
 }

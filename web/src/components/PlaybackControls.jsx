@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react"
 import { Gauge, Pause, Play, StepBack, StepForward, Workflow } from "lucide-react"
 import { PLAYBACK_SPEEDS } from "../utils/constants.js"
 import {
@@ -96,6 +97,48 @@ export default function PlaybackControls({
   totalEvents,
 }) {
   const currentStep = Math.max(1, playbackIndex + 1)
+  const [displayStep, setDisplayStep] = useState(currentStep)
+  const displayStepRef = useRef(currentStep)
+
+  useEffect(() => {
+    displayStepRef.current = displayStep
+  }, [displayStep])
+
+  useEffect(() => {
+    const startValue = displayStepRef.current
+    const targetValue = currentStep
+
+    if (Math.abs(targetValue - startValue) < 0.001) {
+      setDisplayStep(targetValue)
+      return
+    }
+
+    const durationMs = Math.min(420, 180 + Math.abs(targetValue - startValue) * 70)
+    let animationFrameId = 0
+    let startTime = 0
+
+    const animate = (timestamp) => {
+      if (!startTime) {
+        startTime = timestamp
+      }
+
+      const progress = Math.min(1, (timestamp - startTime) / durationMs)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const nextValue = startValue + (targetValue - startValue) * eased
+
+      displayStepRef.current = nextValue
+      setDisplayStep(nextValue)
+
+      if (progress < 1) {
+        animationFrameId = window.requestAnimationFrame(animate)
+      }
+    }
+
+    animationFrameId = window.requestAnimationFrame(animate)
+    return () => {
+      window.cancelAnimationFrame(animationFrameId)
+    }
+  }, [currentStep])
 
   const togglePlayback = () => {
     if (isPlaying) {
@@ -166,7 +209,7 @@ export default function PlaybackControls({
           min={1}
           onValueChange={([value]) => onStepChange(value - 1)}
           step={1}
-          value={[currentStep]}
+          value={[displayStep]}
         />
 
         {currentStepLabel ? (

@@ -3,10 +3,11 @@ import { MarkerType, Position, applyNodeChanges } from "@xyflow/react";
 import { NODE_DIMENSIONS, EDGE_COLORS } from "../utils/constants.js";
 import { applyLayout } from "../utils/graphUtils.js";
 
-function buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, isPlaying) {
+function buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying) {
   return graphModel.session.edges.map((edge, index) => {
     const isVisible = graphModel.visitedNodeIds.size === 0 || graphModel.visitedNodeIds.has(edge.from) || graphModel.visitedNodeIds.has(edge.to);
     const edgeId = `${edge.from}::${edge.to}`;
+    const isHandoff = Boolean(handoff?.edgeIds?.has(edgeId));
     const touchesActiveNode = Boolean(
       activePlaybackNodeId && (edge.from === activePlaybackNodeId || edge.to === activePlaybackNodeId)
     );
@@ -18,8 +19,8 @@ function buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, isPlaying) 
       source: edge.from,
       target: edge.to,
       type: "smoothstep",
-      animated: false,
-      className: `workflow-edge ${isActive ? "is-active" : ""}`,
+      animated: isHandoff,
+      className: `workflow-edge ${isActive ? "is-active" : ""} ${isHandoff ? "is-handoff" : ""}`,
       pathOptions: {
         borderRadius: 14,
         offset: 18
@@ -32,8 +33,8 @@ function buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, isPlaying) 
       },
       style: {
         stroke,
-        opacity: isVisible ? (isActive ? 1 : 0.8) : 0.2,
-        strokeWidth: isActive ? 3.1 : 1.9
+        opacity: isVisible ? (isActive || isHandoff ? 1 : 0.8) : 0.2,
+        strokeWidth: isActive ? 3.1 : isHandoff ? 2.6 : 1.9
       }
     };
   });
@@ -61,6 +62,7 @@ export function useGraphLayout({
   detailsNodeId,
   activePlaybackNodeId,
   activeEdgeIds,
+  handoff,
   isPlaying,
   onRunChain,
   onOpenDetails,
@@ -80,7 +82,7 @@ export function useGraphLayout({
       graphModel.firstSeenSeqByNode
     );
 
-    setEdges(buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, isPlaying));
+    setEdges(buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying));
     setNodes((currentNodes) => {
       const currentById = new Map(currentNodes.map((node) => [node.id, node]));
 
@@ -92,20 +94,28 @@ export function useGraphLayout({
         position: currentById.get(node.id)?.position ?? layout.get(node.id) ?? { x: 0, y: 0 },
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
-        data: buildNodeData(
-          graphModel,
-          selectedRun,
-          node.id,
-          selectedNodeId,
-          detailsNodeId,
-          activePlaybackNodeId,
-          isPlaying,
-          onRunChain,
-          onOpenDetails
-        )
+        data: {
+          ...buildNodeData(
+            graphModel,
+            selectedRun,
+            node.id,
+            selectedNodeId,
+            detailsNodeId,
+            activePlaybackNodeId,
+            isPlaying,
+            onRunChain,
+            onOpenDetails
+          ),
+          handoffState:
+            handoff?.from === node.id
+              ? "source"
+              : handoff?.to === node.id
+                ? "target"
+                : null
+        }
       }));
     });
-  }, [graphModel, selectedRun, selectedNodeId, detailsNodeId, activePlaybackNodeId, activeEdgeIds, isPlaying, onRunChain, onOpenDetails, buildNodeData]);
+  }, [graphModel, selectedRun, selectedNodeId, detailsNodeId, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying, onRunChain, onOpenDetails, buildNodeData]);
 
   const onNodesChange = (changes) => {
     setNodes((currentNodes) => applyNodeChanges(changes, currentNodes));

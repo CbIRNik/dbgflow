@@ -2,45 +2,41 @@ import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronRight, X } from "lucide-react"
 import { Badge, Button, Card, ScrollArea, Separator } from "./ui"
 
-function highlightRust(code) {
-  if (!code) return null
-  const lines = code.split("\n")
+function escapeHTML(str) {
+  return str.replace(
+    /[&<>'"]/g,
+    (tag) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+      })[tag] || tag,
+  )
+}
 
-  const escapeHTML = (str) =>
-    str.replace(
-      /[&<>'"]/g,
-      (tag) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          "'": "&#39;",
-          '"': "&quot;",
-        })[tag] || tag,
+function highlightRustHTML(code) {
+  if (!code) {
+    return ""
+  }
+
+  return code
+    .split("\n")
+    .map((line) =>
+      escapeHTML(line)
+        .replace(/(&quot;.*?&quot;)/g, '<span class="text-green-400">$1</span>')
+        .replace(/(\/\/.*)/g, '<span class="text-neutral-500">$1</span>')
+        .replace(
+          /\b(pub|fn|struct|enum|impl|for|let|mut|match|if|else|return|const|static|use|mod|crate|super)\b/g,
+          '<span class="text-orange-400">$1</span>',
+        )
+        .replace(
+          /\b(String|Vec|Option|Result|bool|i32|i64|u32|u64|usize|f32|f64)\b/g,
+          '<span class="text-blue-400">$1</span>',
+        ),
     )
-
-  return lines.map((line, i) => {
-    let highlight = escapeHTML(line)
-    highlight = highlight
-      .replace(/(&quot;.*?&quot;)/g, '<span class="text-green-400">$1</span>')
-      .replace(/(\/\/.*)/g, '<span class="text-neutral-500">$1</span>')
-      .replace(
-        /\b(pub|fn|struct|enum|impl|for|let|mut|match|if|else|return|const|static|use|mod|crate|super)\b/g,
-        '<span class="text-orange-400">$1</span>',
-      )
-      .replace(
-        /\b(String|Vec|Option|Result|bool|i32|i64|u32|u64|usize|f32|f64)\b/g,
-        '<span class="text-blue-400">$1</span>',
-      )
-
-    return (
-      <span
-        key={i}
-        className="block min-h-[1em]"
-        dangerouslySetInnerHTML={{ __html: highlight }}
-      />
-    )
-  })
+    .join("\n")
 }
 
 const KIND_CONFIG = {
@@ -64,6 +60,122 @@ function sectionTitle(title) {
       {title}
     </div>
   )
+}
+
+function highlightLine(content, preferredLanguage) {
+  return highlightData(content, preferredLanguage) ?? escapeHTML(content)
+}
+
+function renderHighlightedLines(content, preferredLanguage, keyPrefix) {
+  return content.split("\n").map((line, index) => (
+    <span
+      key={`${keyPrefix}-${index}`}
+      className="details-panel__preview-line"
+      dangerouslySetInnerHTML={{
+        __html: line ? highlightLine(line, preferredLanguage) : "&nbsp;",
+      }}
+    />
+  ))
+}
+
+function countBracketDelta(line) {
+  const opens = [...line].filter((char) => char === "[").length
+  const closes = [...line].filter((char) => char === "]").length
+  return opens - closes
+}
+
+function collectCollapsibleArrays(content) {
+  const lines = content.split("\n")
+  const sections = []
+  const plainBuffer = []
+  const flushPlainBuffer = () => {
+    if (!plainBuffer.length) {
+      return
+    }
+
+    sections.push({
+      type: "text",
+      content: plainBuffer.join("\n"),
+    })
+    plainBuffer.length = 0
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const trimmed = line.trim()
+    const looksLikeArrayStart =
+      trimmed.endsWith("[") && !trimmed.startsWith("//") && !trimmed.startsWith("#")
+
+    if (!looksLikeArrayStart) {
+      plainBuffer.push(line)
+      continue
+    }
+
+    let depth = countBracketDelta(line)
+    if (depth <= 0) {
+      plainBuffer.push(line)
+      continue
+    }
+
+    const arrayLines = [line]
+    let endIndex = index
+    while (depth > 0 && endIndex + 1 < lines.length) {
+      endIndex += 1
+      arrayLines.push(lines[endIndex])
+      depth += countBracketDelta(lines[endIndex])
+    }
+
+    const itemCount = arrayLines.slice(1, -1).filter((entry) => entry.trim()).length
+    if (depth !== 0 || itemCount < 10) {
+      plainBuffer.push(...arrayLines)
+      index = endIndex
+      continue
+    }
+
+    flushPlainBuffer()
+
+    const startLine = arrayLines[0]
+    const endLine = arrayLines[arrayLines.length - 1]
+    const collapsedPrefix = startLine.slice(0, startLine.lastIndexOf("[")).trimEnd()
+    const collapsedSuffix = endLine.trim().endsWith(",") ? "," : ""
+
+    sections.push({
+      type: "array",
+      collapsedLine: `${collapsedPrefix} [ … ${itemCount} items ]${collapsedSuffix}`,
+      expandedContent: arrayLines.join("\n"),
+      key: `${index}-${itemCount}`,
+    })
+
+    index = endIndex
+  }
+
+  flushPlainBuffer()
+
+  return sections.some((section) => section.type === "array") ? sections : null
+}
+
+function formatSourceCode(content) {
+  return content
+    .split("\n")
+    .flatMap((line) => {
+      const trimmed = line.trim()
+      const shouldWrap =
+        trimmed.length > 72 &&
+        (trimmed.includes(".await") || (trimmed.match(/\.[A-Za-z_][A-Za-z0-9_]*\s*\(/g) ?? []).length >= 2)
+
+      if (!shouldWrap) {
+        return [line]
+      }
+
+      const segments = line.split(/(?=\.[A-Za-z_][A-Za-z0-9_]*\s*\(|\.await\b)/g)
+      if (segments.length < 3) {
+        return [line]
+      }
+
+      const indent = line.match(/^\s*/)?.[0] ?? ""
+      return [segments[0], ...segments.slice(1).map((segment) => `${indent}    ${segment.trimStart()}`)]
+    })
+    .join("\n")
 }
 
 function highlightData(content, preferredLanguage = null) {
@@ -141,30 +253,82 @@ function highlightData(content, preferredLanguage = null) {
   return null
 }
 
+function CollapsibleArrayBlock({ section, preferredLanguage }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div className="details-panel__array-section">
+      <button
+        className="details-panel__array-toggle"
+        onClick={() => setIsExpanded((current) => !current)}
+        type="button"
+      >
+        {isExpanded ? "Hide array" : "Show array"}
+      </button>
+      {isExpanded
+        ? renderHighlightedLines(
+            section.expandedContent,
+            preferredLanguage,
+            `array-expanded-${section.key}`,
+          )
+        : renderHighlightedLines(
+            section.collapsedLine,
+            preferredLanguage,
+            `array-collapsed-${section.key}`,
+          )}
+    </div>
+  )
+}
+
+function PreviewBlock({ content, preferredLanguage = null }) {
+  const sections = collectCollapsibleArrays(content)
+
+  if (!sections) {
+    const highlighted = highlightData(content, preferredLanguage)
+    return highlighted ? (
+      <pre className="details-panel__record-preview">
+        <code dangerouslySetInnerHTML={{ __html: highlighted }} />
+      </pre>
+    ) : (
+      <pre className="details-panel__record-preview">{content}</pre>
+    )
+  }
+
+  return (
+    <div className="details-panel__record-preview details-panel__record-preview--structured">
+      {sections.map((section, index) =>
+        section.type === "array" ? (
+          <CollapsibleArrayBlock
+            key={section.key}
+            preferredLanguage={preferredLanguage}
+            section={section}
+          />
+        ) : (
+          <div className="details-panel__text-section" key={`text-${index}`}>
+            {renderHighlightedLines(section.content, preferredLanguage, `text-${index}`)}
+          </div>
+        ),
+      )}
+    </div>
+  )
+}
+
 function recordList(items, emptyLabel) {
   if (!items.length) {
     return <div className="details-panel__empty">{emptyLabel}</div>
   }
 
   return items.map((item, index) => {
-    const highlighted = highlightData(item.preview, item.language)
-
     return (
       <div
         className="details-panel__record"
         key={`${item.name}-${item.title}-${index}`}
-      >
-        <div className="details-panel__record-head">
-          <span>{item.name}</span>
-          {item.title ? <span>{item.title}</span> : null}
-        </div>
-        {highlighted ? (
-          <pre className="details-panel__record-preview">
-            <code dangerouslySetInnerHTML={{ __html: highlighted }} />
-          </pre>
-        ) : (
-          <pre className="details-panel__record-preview">{item.preview}</pre>
-        )}
+        >
+          <div className="details-panel__record-head">
+            <span>{item.name}</span>
+            {item.title ? <span>{item.title}</span> : null}
+          </div>
+          <PreviewBlock content={item.preview} preferredLanguage={item.language} />
       </div>
     )
   })
@@ -180,6 +344,9 @@ export default function NodeDetailsPanel({
 }) {
   const [isCodeOpen, setIsCodeOpen] = useState(false)
   const dragStateRef = useRef(null)
+  const formattedSource = nodeData.node.source
+    ? formatSourceCode(nodeData.node.source)
+    : ""
   const kind = KIND_CONFIG[nodeData.node.kind] ?? KIND_CONFIG.function
   const statusClassName =
     nodeData.executionState === "failure"
@@ -284,11 +451,11 @@ export default function NodeDetailsPanel({
                         dangerouslySetInnerHTML={{
                           __html: window.Prism
                             ? window.Prism.highlight(
-                                nodeData.node.source,
+                                formattedSource,
                                 window.Prism.languages.rust,
                                 "rust",
                               )
-                            : highlightRust(nodeData.node.source),
+                            : highlightRustHTML(formattedSource),
                         }}
                       />
                     </pre>

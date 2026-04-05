@@ -32,6 +32,12 @@ export default function GraphNode({ data, selected }) {
   const animationClassName = data.isAnimating
     ? "workflow-node--running-animated"
     : ""
+  const handoffClassName =
+    data.handoffState === "source"
+      ? "workflow-node--handoff-source"
+      : data.handoffState === "target"
+        ? "workflow-node--handoff-target"
+        : ""
   const statusClassName =
     data.executionState === "running"
       ? [
@@ -54,6 +60,7 @@ export default function GraphNode({ data, selected }) {
         isSelected ? "is-selected" : "",
         executionStateClassName,
         animationClassName,
+        handoffClassName,
       ]
         .filter(Boolean)
         .join(" ")}
