@@ -29,6 +29,33 @@ export function slugifyLabel(label) {
     .replace(/^-+|-+$/g, "");
 }
 
+export function isTypePreview(preview) {
+  return String(preview).trim().startsWith("type ");
+}
+
+export function normalizeRustType(preview) {
+  return String(preview)
+    .replace(/^type\s+/, "")
+    .replace(/\b(?:alloc|std|core)(?:::[a-z_][a-z0-9_]*)+::/g, "")
+    .trim();
+}
+
+export function extractFunctionName(source) {
+  const match = String(source).match(/\bfn\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
+  return match?.[1] ?? "";
+}
+
+export function buildReturnSignature(source, preview) {
+  const functionName = extractFunctionName(source);
+  const returnType = normalizeRustType(preview);
+
+  if (!functionName || !returnType) {
+    return preview;
+  }
+
+  return `fn ${functionName}() -> ${returnType} {}`;
+}
+
 function focusNodeIdForEvent(event, testLinkByTestNode) {
   if (!event) {
     return null;

@@ -66,10 +66,22 @@ function sectionTitle(title) {
   )
 }
 
-function highlightData(content) {
+function highlightData(content, preferredLanguage = null) {
   if (!content || !window.Prism) return null
 
   const trimmed = content.trim()
+
+  if (preferredLanguage === "rust" && window.Prism.languages.rust) {
+    return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
+  }
+
+  if (preferredLanguage === "javascript") {
+    return window.Prism.highlight(
+      content,
+      window.Prism.languages.javascript,
+      "javascript",
+    )
+  }
 
   // Try JSON first (valid JSON objects/arrays)
   try {
@@ -87,6 +99,10 @@ function highlightData(content) {
   // Patterns: SomeStruct { ... }, SomeEnum::Variant, (a, b, c)
   const hasRustPatterns = /^[A-Z][a-zA-Z0-9]*\s*[{(]|::|^\(.*\)$/.test(trimmed)
   if (hasRustPatterns && window.Prism.languages.rust) {
+    return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
+  }
+
+  if (/^fn\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(/.test(trimmed) && window.Prism.languages.rust) {
     return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
   }
 
@@ -131,7 +147,7 @@ function recordList(items, emptyLabel) {
   }
 
   return items.map((item, index) => {
-    const highlighted = highlightData(item.preview)
+    const highlighted = highlightData(item.preview, item.language)
 
     return (
       <div

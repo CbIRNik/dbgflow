@@ -1,5 +1,6 @@
 import dagre from "@dagrejs/dagre"
 import { NODE_DIMENSIONS } from "./constants.js"
+import { buildReturnSignature, isTypePreview } from "./formatUtils.js"
 
 export function buildGraphModel(session, selectedRun, visibleEvents) {
   if (!session || !selectedRun) {
@@ -133,7 +134,11 @@ export function buildGraphModel(session, selectedRun, visibleEvents) {
     }
 
     if (event.kind === "function_exit" && renderNodeIds.has(event.node_id)) {
-      pushMapItems(outputDataByNode, event.node_id, formatExitRecords(event))
+      pushMapItems(
+        outputDataByNode,
+        event.node_id,
+        formatExitRecords(event, nodeById.get(event.node_id)),
+      )
     }
 
     if (event.kind === "value_snapshot") {
@@ -551,12 +556,16 @@ function resolveInputRecords(event, latestSnapshotByTypeNode, typeNodes) {
   return records
 }
 
-function formatExitRecords(event) {
+function formatExitRecords(event, sourceNode) {
   return (event.values ?? []).map((value) => ({
     name: value.name,
-    preview: value.preview,
+    preview:
+      sourceNode?.source && isTypePreview(value.preview)
+        ? buildReturnSignature(sourceNode.source, value.preview)
+        : value.preview,
     title: "return",
     sourceLabel: null,
+    language: sourceNode?.source && isTypePreview(value.preview) ? "rust" : null,
   }))
 }
 
