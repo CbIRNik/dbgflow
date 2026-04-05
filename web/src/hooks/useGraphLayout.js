@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MarkerType, Position, applyNodeChanges } from "@xyflow/react"
 import { NODE_DIMENSIONS, EDGE_COLORS } from "../utils/constants.js"
 import { applyLayout } from "../utils/graphUtils.js"
@@ -33,6 +33,11 @@ function buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds) {
       target: edge.to,
       type: "smoothstep",
       className: `workflow-edge ${isActive ? "is-active" : ""}`,
+      focusable: false,
+      deletable: false,
+      selectable: false,
+      reconnectable: false,
+      hidden: false,
       pathOptions: {
         borderRadius: 14,
         offset: 18,
@@ -89,6 +94,8 @@ export function useGraphLayout({
   const layoutKey = selectedRun
     ? `${selectedRun.id}:${graphNodes.length}:${graphEdges.length}`
     : ""
+  const canvasModeRef = useRef(canvasMode)
+  canvasModeRef.current = canvasMode
 
   const layout = useMemo(() => {
     if (!graphModel) {
@@ -128,7 +135,6 @@ export function useGraphLayout({
     return graphNodes.map((node) => ({
       id: node.id,
       type: "inspector",
-      draggable: canvasMode === "move-nodes",
       width: NODE_DIMENSIONS.width,
       height: NODE_DIMENSIONS.height,
       selected: selectedNodeId === node.id,
@@ -176,7 +182,7 @@ export function useGraphLayout({
   }, [graphNodes, layout, nodePositions])
 
   const onNodesChange = useCallback((changes) => {
-    if (!graphNodes.length || canvasMode !== "move-nodes") {
+    if (!graphNodes.length || canvasModeRef.current !== "move-nodes") {
       return
     }
 
@@ -188,7 +194,7 @@ export function useGraphLayout({
         nextNodes.map((node) => [node.id, roundPosition(node.position)]),
       )
     })
-  }, [canvasMode, graphNodes, layout])
+  }, [graphNodes, layout])
 
   return { nodes, edges, nodePositionSnapshot, onNodesChange }
 }

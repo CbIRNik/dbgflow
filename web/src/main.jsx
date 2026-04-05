@@ -328,10 +328,12 @@ function App() {
     [],
   )
 
+  // Node focus effect only shows when panel is open
+  const visualSelectedNodeId = isDetailsOpen ? selectedNodeId : ""
   const { nodes, edges, nodePositionSnapshot, onNodesChange } = useGraphLayout({
     graphModel,
     selectedRun,
-    selectedNodeId,
+    selectedNodeId: visualSelectedNodeId,
     canvasMode,
     activePlaybackNodeId,
     activeEdgeIds,
@@ -354,30 +356,26 @@ function App() {
       return ""
     }
 
+    // Only show details for explicitly selected nodes - never auto-select
     if (detailsNodeId && graphModel.nodeById.has(detailsNodeId)) {
       return detailsNodeId
     }
 
-    if (activePlaybackNodeId && graphModel.nodeById.has(activePlaybackNodeId)) {
-      return activePlaybackNodeId
+    // If panel is open but no valid detailsNodeId, close it
+    // This handles restoring state where isDetailsOpen was true but node was reset
+    return ""
+  }, [detailsNodeId, graphModel, isDetailsOpen])
+
+  // Close panel in store if it's open but has no valid node to display
+  useEffect(() => {
+    if (!selectedRun?.id || isRestoringState.current) {
+      return
     }
 
-    if (selectedNodeId && graphModel.nodeById.has(selectedNodeId)) {
-      return selectedNodeId
+    if (isDetailsOpen && !resolvedDetailsNodeId) {
+      setPipelineState(selectedRun.id, { isDetailsOpen: false })
     }
-
-    if (graphModel.rootNodeId && graphModel.nodeById.has(graphModel.rootNodeId)) {
-      return graphModel.rootNodeId
-    }
-
-    return graphModel.session.nodes[0]?.id ?? ""
-  }, [
-    activePlaybackNodeId,
-    detailsNodeId,
-    graphModel,
-    isDetailsOpen,
-    selectedNodeId,
-  ])
+  }, [isDetailsOpen, resolvedDetailsNodeId, selectedRun?.id, setPipelineState])
 
   const playbackBarWidth = useMemo(() => {
     if (!isDetailsOpen) {

@@ -1,56 +1,49 @@
 # dbgflow
 
-`dbgflow` is a graph-first debugger for Rust.
+A graph-first debugger for Rust that visualizes program execution as an interactive node graph.
 
-It gives you:
+## Features
 
-- a Rust library crate named `dbgflow`
-- a CLI binary named `dbgflow`
-- attribute macros to trace functions, data nodes, and tests
-- a browser UI that renders execution as a graph with a timeline and failing test nodes
+- **Visual Execution Graph** — See function calls as nodes and their relationships as edges
+- **Time-Travel Playback** — Step through execution events with animated playback controls
+- **Value Snapshots** — Capture and inspect data state at any point during execution
+- **Test Integration** — Link test failures directly to the traced function that caused them
+- **Browser UI** — Modern React-based interface with syntax highlighting and collapsible data views
 
-The public package name, Rust crate name, and CLI name are all `dbgflow`.
+## Packages
 
-## What It Does
+dbgflow is published on crates.io as three packages:
 
-`dbgflow` is aimed at the workflow where you want to look at program execution as a graph instead of a text log.
+| Package | Description |
+|---------|-------------|
+| [`dbgflow`](https://crates.io/crates/dbgflow) | Main crate with library and CLI binary |
+| [`dbgflow-core`](https://crates.io/crates/dbgflow-core) | Runtime, session model, and embedded UI server |
+| [`dbgflow-macros`](https://crates.io/crates/dbgflow-macros) | Procedural macros (`#[trace]`, `#[ui_debug]`, `#[dbg_test]`) |
 
-Core concepts:
+Documentation: [docs.rs/dbgflow](https://docs.rs/dbgflow)
 
-- `#[trace]` marks functions that should appear as executable graph nodes.
-- `#[ui_debug]` marks structs or enums that should appear as data nodes and support value snapshots.
-- `#[dbg_test]` wraps tests so a session is persisted per test and failures are linked to the latest traced node.
-- `dbgflow test` runs `cargo test`, collects session JSON files, and can immediately serve the captured failing run.
-- `dbgflow serve` opens any saved session in the local browser UI.
+## Installation
 
-## Install
-
-### From crates.io
+Add the library to your project and install the CLI:
 
 ```bash
 cargo add dbgflow
 cargo install dbgflow
 ```
 
-This adds the library to your project and installs the `dbgflow` CLI into your Cargo bin directory.
+## Quick Start
 
-### From this repository
+### 1. Run the Demo
 
-If you want to work from source instead of crates.io:
+See dbgflow in action with the built-in demo:
 
-```toml
-[dependencies]
-dbgflow = { path = "/absolute/path/to/dbg/crates/dbg-cli" }
+```bash
+dbgflow demo --serve
 ```
 
-```toml
-[dev-dependencies]
-dbgflow = { path = "/absolute/path/to/dbg/crates/dbg-cli" }
-```
+This generates a sample session and opens the browser UI at `http://127.0.0.1:3000`.
 
-## Quickstart
-
-### Library usage
+### 2. Instrument Your Code
 
 ```rust
 use dbgflow::prelude::*;
@@ -74,139 +67,236 @@ mod tests {
     fn state_flow() {
         let mut state = State { counter: 0 };
         step(&mut state);
-        assert_eq!(state.counter, 2);
+        assert_eq!(state.counter, 2); // This will fail
     }
 }
 ```
 
-### CLI usage
-
-Run the built-in demo:
-
-```bash
-dbgflow demo --serve
-```
-
-Serve an existing session:
-
-```bash
-dbgflow serve artifacts/demo-session.json
-```
-
-Run a real project and capture traced test sessions:
-
-```bash
-dbgflow test --manifest-path /path/to/project/Cargo.toml -- --lib
-```
-
-If you want the UI immediately on the preferred captured session:
+### 3. Capture Test Sessions
 
 ```bash
 dbgflow test --manifest-path /path/to/project/Cargo.toml --serve -- --lib
 ```
 
-## Real Project Flow
+The `--serve` flag opens the UI immediately after tests complete, focused on the first failing test.
 
-1. Add the dependency:
+## Macros
 
-```bash
-cargo add dbgflow
-```
+### `#[trace]`
 
-2. Import the prelude:
+Marks functions that appear as nodes in the execution graph:
 
 ```rust
-use dbgflow::prelude::*;
+#[trace]
+fn process_data(input: &str) -> Result<Output, Error> {
+    // Function calls are recorded as enter/exit events
+}
+
+#[trace(name = "Custom Label")]
+fn internal_step() {
+    // Override the display name in the UI
+}
 ```
 
-3. Mark the code you care about:
+### `#[ui_debug]`
 
-- put `#[trace]` on functions you want to see as execution nodes
-- put `#[ui_debug]` on structs/enums whose state you want to snapshot
-- put `#[dbg_test]` on tests you want captured as sessions
+Marks types for value inspection in the UI:
 
-4. Run the test capture command:
+```rust
+#[ui_debug]
+struct Pipeline {
+    stage: String,
+    items: Vec<Item>,
+}
+
+impl Pipeline {
+    fn advance(&mut self) {
+        self.stage = "processing".into();
+        self.emit_snapshot("stage changed"); // Captures current state
+    }
+}
+```
+
+The `emit_snapshot` method is automatically available on `#[ui_debug]` types.
+
+### `#[dbg_test]`
+
+Wraps tests to capture execution sessions:
+
+```rust
+#[dbg_test]
+fn my_test() {
+    // Test execution is captured as a session
+    // Failures link to the last traced function
+}
+```
+
+## CLI Commands
+
+### `dbgflow demo`
+
+Generate and optionally serve the built-in demo session:
 
 ```bash
-dbgflow test --manifest-path /path/to/project/Cargo.toml -- --lib
+dbgflow demo                          # Generate demo-session.json
+dbgflow demo --serve                  # Generate and open in browser
+dbgflow demo --output my-demo.json    # Custom output path
+dbgflow demo --port 8080              # Custom port
 ```
 
-5. Inspect the output. The CLI prints:
+### `dbgflow serve`
 
-- the run directory under `artifacts/test-sessions/run-<timestamp>`
-- every captured session file
-- a ready-to-run `dbgflow serve /abs/path/to/session.json` command for the preferred session
-
-6. Open the UI:
+Serve a saved session or directory of sessions:
 
 ```bash
-dbgflow serve /abs/path/to/failing-session.json
+dbgflow serve artifacts/session.json       # Single session
+dbgflow serve artifacts/test-sessions/     # Merge all sessions in directory
+dbgflow serve session.json --port 8080     # Custom port
 ```
 
-## Manual Capture
+When serving a directory, all JSON files are merged into a single session with multiple pipelines.
 
-If you want to trace a specific block of code without wrapping it into `#[dbg_test]`, use the capture helpers:
+### `dbgflow test`
+
+Run cargo test with session capture:
+
+```bash
+dbgflow test                                           # Test current project
+dbgflow test --manifest-path /path/to/Cargo.toml       # Test specific project
+dbgflow test --serve                                   # Open UI after tests
+dbgflow test --output-dir ./my-sessions                # Custom session directory
+dbgflow test -- --lib                                  # Pass args to cargo test
+dbgflow test -- --test integration_tests               # Run specific tests
+```
+
+Sessions are saved to `artifacts/test-sessions/run-<timestamp>/` by default.
+
+## Browser UI
+
+The dbgflow UI provides an interactive visualization of your execution sessions.
+
+### Graph Canvas
+
+- **Function Nodes** — Display traced functions with `fn` badge and call signature
+- **Data Nodes** — Display `#[ui_debug]` types with `db` badge
+- **Test Nodes** — Display tests with `t` badge, linked to their last traced function
+- **Edges** — Show call relationships and test-to-function links
+- **Status Indicators** — Color-coded dots show idle (gray), running (orange), success (green), or failure (red)
+
+### Left Panel (Node Details)
+
+Click any node to open the details panel:
+
+- **Node Info** — Type badge and execution status
+- **Source Code** — Collapsible view of the traced function source (with Rust syntax highlighting)
+- **Input Section** — Captured function arguments and their values
+- **Output Section** — Return values and snapshots emitted during execution
+- **Resizable** — Drag the panel edge to adjust width
+
+The panel automatically follows the active node during playback. Click the canvas background or press the X button to dismiss.
+
+### Playback Controls
+
+The bottom control bar provides:
+
+- **Play/Pause** — Start or stop animated playback through events
+- **Step Controls** — Jump to start or end of the timeline
+- **Pipeline Selector** — Switch between multiple pipelines in a merged session
+- **Step Selector** — Jump to a specific event by number
+- **Speed Control** — Adjust playback speed (0.25x to 4x)
+- **Canvas Mode Toggle** — Switch between "Pan" (drag canvas) and "Nodes" (drag individual nodes)
+- **Timeline Slider** — Scrub through events with animated transitions
+
+### Keyboard & Mouse
+
+- Click a node to select it and open details
+- Click the canvas background to deselect
+- In Pan mode: drag to pan the viewport
+- In Nodes mode: drag nodes to reposition them
+- Scroll to zoom in/out
+
+## Programmatic Capture
+
+For non-test scenarios, use the capture helpers:
 
 ```rust
 use dbgflow::prelude::*;
 
 fn main() -> std::io::Result<()> {
-    capture_and_serve("checkout flow", "127.0.0.1", 3000, || {
-        let mut state = State { counter: 0 };
-        step(&mut state);
-        classify(&state);
+    // Capture and immediately serve
+    capture_and_serve("my session", "127.0.0.1", 3000, || {
+        run_pipeline();
     })?;
-
     Ok(())
 }
 ```
 
-For file-based capture instead of serving immediately:
-
 ```rust
-dbgflow::capture_to_file("checkout flow", "artifacts/manual-session.json", || {
-    // traced code here
+// Capture to a file
+dbgflow::capture_to_file("my session", "artifacts/session.json", || {
+    run_pipeline();
 })?;
 ```
 
-## Session Model
+```rust
+// Manual session management
+dbgflow::init_session("my session");
+run_pipeline();
+dbgflow::save_current_session("artifacts/session.json")?;
+```
 
-Each run produces a JSON session that contains:
+## Session Format
 
-- nodes
-- edges
-- events
+Sessions are stored as JSON files containing:
 
-Current node types:
+| Field | Description |
+|-------|-------------|
+| `nodes` | Function, type, and test nodes with metadata |
+| `edges` | Relationships between nodes (calls, test links) |
+| `events` | Ordered sequence of execution events |
 
-- `function`
-- `type`
-- `test`
+### Node Types
 
-Current event types:
+- `function` — Traced function
+- `type` — `#[ui_debug]` data type
+- `test` — `#[dbg_test]` test case
 
-- `function_enter`
-- `function_exit`
-- `value_snapshot`
-- `test_started`
-- `test_passed`
-- `test_failed`
+### Event Types
 
-## Workspace Layout
+- `function_enter` — Function call started
+- `function_exit` — Function call returned
+- `value_snapshot` — Data state captured via `emit_snapshot`
+- `test_started` — Test execution began
+- `test_passed` — Test completed successfully
+- `test_failed` — Test assertion failed
 
-- `crates/dbg-cli`: package `dbgflow`, exposing the `dbgflow` library crate and `dbgflow` CLI binary
-- `crates/dbg-core`: package `dbgflow-core`, containing runtime, session model, and embedded UI server
-- `crates/dbg-macros`: package `dbgflow-macros`, containing `#[trace]`, `#[ui_debug]`, and `#[dbg_test]`
-- `web`: React Flow UI sources, built with `bun`
-- `docs/architecture.md`: system architecture notes
-- `docs/publishing.md`: release checklist for future versions
-- `examples/pipelines`: standalone example workspace with traced pipeline binaries and saved session JSON files
+## Project Structure
 
-## UI Build
+```
+crates/
+├── dbg-cli/       # dbgflow library and CLI binary
+├── dbg-core/      # Runtime, session model, embedded UI server
+└── dbg-macros/    # Procedural macros
+web/               # React Flow UI sources
+examples/          # Example projects with traced code
+docs/              # Architecture and release documentation
+```
 
-The repository includes built UI assets in `crates/dbg-core/ui`, so the Rust side works directly after clone.
+## Building from Source
 
-If you change the frontend:
+Clone the repository and build:
+
+```bash
+git clone https://github.com/yourname/dbgflow
+cd dbgflow
+cargo build --release
+```
+
+The CLI binary is at `target/release/dbgflow`.
+
+### UI Development
+
+The UI assets are pre-built in `crates/dbg-core/ui`. To modify the frontend:
 
 ```bash
 cd web
@@ -214,38 +304,21 @@ bun install
 bun run build
 ```
 
-That writes `app.js` and `app.css` into `crates/dbg-core/ui`.
+This writes `app.js` and `app.css` to `crates/dbg-core/ui`.
 
-The current UI uses:
+The UI uses:
 
 - `@xyflow/react` for graph rendering
-- `@dagrejs/dagre` for directed graph layout
+- `@dagrejs/dagre` for automatic graph layout
+- `prismjs` for syntax highlighting
 
-## Current Limitations
+## Limitations
 
-- `#[dbg_test]` does not support async tests yet.
-- `dbgflow test` forces `RUST_TEST_THREADS=1` to keep per-test capture stable in the current implementation.
-- The test node is linked to the latest traced node seen during the test, not a full assertion stack.
-- Value previews are mostly `Debug` snapshots and type names, not structured semantic diffs yet.
-- The embedded UI is replay-oriented today; it is not yet a live streaming debugger.
+- `#[dbg_test]` does not support async tests
+- `dbgflow test` runs tests with `RUST_TEST_THREADS=1` for stable capture
+- Value snapshots use `Debug` formatting, not structured diffs
+- The UI is replay-oriented; live streaming is not yet supported
 
-## Development
+## License
 
-Useful commands:
-
-```bash
-cargo test
-bun run --cwd web build
-cargo run -p dbgflow -- demo --serve
-cargo run --manifest-path examples/pipelines/Cargo.toml --example loops
-cargo run -p dbgflow -- serve examples/pipelines
-```
-
-## Published Packages
-
-- crate: [crates.io/crates/dbgflow](https://crates.io/crates/dbgflow)
-- core runtime: [crates.io/crates/dbgflow-core](https://crates.io/crates/dbgflow-core)
-- proc macros: [crates.io/crates/dbgflow-macros](https://crates.io/crates/dbgflow-macros)
-- docs: [docs.rs/dbgflow](https://docs.rs/dbgflow)
-
-For release steps for the next version, see [docs/publishing.md](docs/publishing.md).
+MIT

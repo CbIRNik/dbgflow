@@ -1,0 +1,2411 @@
+{
+  "title": "Loop Examples Pipeline",
+  "nodes": [
+    {
+      "id": "loops::CollatzState",
+      "label": "Collatz State",
+      "kind": "type",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 51,
+      "source": "struct CollatzState {\n    current_value: u64,\n    step_count: usize,\n    sequence: Vec<u64>,\n    max_value_seen: u64,\n}\n"
+    },
+    {
+      "id": "loops::FilterState",
+      "label": "Filter State",
+      "kind": "type",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 91,
+      "source": "struct FilterState {\n    source_count: usize,\n    filtered_count: usize,\n    filter_criteria: String,\n    results: Vec<i32>,\n}\n"
+    },
+    {
+      "id": "loops::LoopState",
+      "label": "Loop State",
+      "kind": "type",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 8,
+      "source": "struct LoopState {\n    iteration: usize,\n    total_iterations: usize,\n    accumulated_value: i64,\n    items_processed: Vec<String>,\n}\n"
+    },
+    {
+      "id": "loops::MatrixState",
+      "label": "Matrix State",
+      "kind": "type",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 129,
+      "source": "struct MatrixState {\n    rows: usize,\n    cols: usize,\n    current_row: usize,\n    current_col: usize,\n    cells_processed: usize,\n}\n"
+    },
+    {
+      "id": "loops::SearchState",
+      "label": "Search State",
+      "kind": "type",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 174,
+      "source": "struct SearchState {\n    target: i32,\n    elements_checked: usize,\n    found_at_index: Option<usize>,\n}\n"
+    },
+    {
+      "id": "loops::StatsState",
+      "label": "Stats State",
+      "kind": "type",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 209,
+      "source": "struct StatsState {\n    count: usize,\n    sum: f64,\n    min: Option<f64>,\n    max: Option<f64>,\n    mean: f64,\n}\n"
+    },
+    {
+      "id": "loops::collatz_sequence",
+      "label": "Collatz Sequence",
+      "kind": "function",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 59,
+      "source": "fn collatz_sequence(start: u64, state: &mut CollatzState) -> usize {\n    state.current_value = start;\n    state.sequence.push(start);\n    state.max_value_seen = start;\n    state.emit_snapshot(&format!(\"starting collatz from {}\", start));\n    while state.current_value != 1 {\n        state.step_count += 1;\n        if state.current_value % 2 == 0 {\n            state.current_value /= 2;\n        } else {\n            state.current_value = 3 * state.current_value + 1;\n        }\n        state.sequence.push(state.current_value);\n        if state.current_value > state.max_value_seen {\n            state.max_value_seen = state.current_value;\n        }\n        state\n            .emit_snapshot(\n                &format!(\"step {}: value = {}\", state.step_count, state.current_value),\n            );\n    }\n    state\n        .emit_snapshot(\n            &format!(\n                \"reached 1 in {} steps, max = {}\", state.step_count, state.max_value_seen\n            ),\n        );\n    state.step_count\n}\n"
+    },
+    {
+      "id": "loops::compute_statistics",
+      "label": "Compute Statistics",
+      "kind": "function",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 218,
+      "source": "fn compute_statistics(values: &[f64], state: &mut StatsState) -> f64 {\n    state.emit_snapshot(&format!(\"computing stats for {} values\", values.len()));\n    for &value in values {\n        state.count += 1;\n        state.sum += value;\n        state.min = Some(state.min.map_or(value, |m| m.min(value)));\n        state.max = Some(state.max.map_or(value, |m| m.max(value)));\n        state.mean = state.sum / state.count as f64;\n        if state.count % 5 == 0 || state.count == values.len() {\n            state\n                .emit_snapshot(\n                    &format!(\n                        \"n={}, mean={:.2}, min={:.2}, max={:.2}\", state.count, state\n                        .mean, state.min.unwrap_or(0.0), state.max.unwrap_or(0.0)\n                    ),\n                );\n        }\n    }\n    state.mean\n}\n"
+    },
+    {
+      "id": "loops::filter_and_transform",
+      "label": "Filter and Transform",
+      "kind": "function",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 99,
+      "source": "fn filter_and_transform(\n    numbers: &[i32],\n    threshold: i32,\n    state: &mut FilterState,\n) -> Vec<i32> {\n    state.source_count = numbers.len();\n    state.filter_criteria = format!(\"n > {} && n % 2 == 0\", threshold);\n    state.emit_snapshot(\"starting filter operation\");\n    let results: Vec<i32> = numbers\n        .iter()\n        .filter(|&&n| {\n            let passes = n > threshold && n % 2 == 0;\n            if passes {\n                state.filtered_count += 1;\n            }\n            passes\n        })\n        .map(|&n| {\n            let transformed = n * 2;\n            state.results.push(transformed);\n            transformed\n        })\n        .collect();\n    state\n        .emit_snapshot(\n            &format!(\"filtered {} -> {} items\", state.source_count, state.filtered_count),\n        );\n    results\n}\n"
+    },
+    {
+      "id": "loops::linear_search",
+      "label": "Linear Search",
+      "kind": "function",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 181,
+      "source": "fn linear_search(\n    haystack: &[i32],\n    needle: i32,\n    state: &mut SearchState,\n) -> Option<usize> {\n    state.target = needle;\n    state\n        .emit_snapshot(\n            &format!(\"searching for {} in {} elements\", needle, haystack.len()),\n        );\n    for (idx, &value) in haystack.iter().enumerate() {\n        state.elements_checked += 1;\n        if value == needle {\n            state.found_at_index = Some(idx);\n            state\n                .emit_snapshot(\n                    &format!(\n                        \"found {} at index {} after {} checks\", needle, idx, state\n                        .elements_checked\n                    ),\n                );\n            return Some(idx);\n        }\n        if state.elements_checked % 10 == 0 {\n            state\n                .emit_snapshot(\n                    &format!(\n                        \"checked {} elements, not found yet\", state.elements_checked\n                    ),\n                );\n        }\n    }\n    state\n        .emit_snapshot(\n            &format!(\"{} not found after {} checks\", needle, state.elements_checked),\n        );\n    None\n}\n"
+    },
+    {
+      "id": "loops::process_matrix",
+      "label": "Process Matrix",
+      "kind": "function",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 138,
+      "source": "fn process_matrix(rows: usize, cols: usize, state: &mut MatrixState) -> Vec<Vec<i32>> {\n    state.rows = rows;\n    state.cols = cols;\n    state.emit_snapshot(&format!(\"creating {}x{} matrix\", rows, cols));\n    let mut matrix = Vec::with_capacity(rows);\n    for row in 0..rows {\n        state.current_row = row;\n        let mut row_data = Vec::with_capacity(cols);\n        for col in 0..cols {\n            state.current_col = col;\n            state.cells_processed += 1;\n            let value = (row * cols + col) as i32;\n            row_data.push(value);\n            if state.cells_processed % 5 == 0 || (row == rows - 1 && col == cols - 1) {\n                state\n                    .emit_snapshot(\n                        &format!(\n                            \"processed {} cells, current [{},{}] = {}\", state\n                            .cells_processed, row, col, value\n                        ),\n                    );\n            }\n        }\n        matrix.push(row_data);\n    }\n    state.emit_snapshot(\"matrix complete\");\n    matrix\n}\n"
+    },
+    {
+      "id": "loops::run_examples",
+      "label": "Run Loop Examples",
+      "kind": "function",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 245,
+      "source": "fn run_examples() {\n    let mut loop_state = LoopState::new();\n    let sum = sum_range(1, 10, &mut loop_state);\n    println!(\"Sum of 1..=10 = {}\", sum);\n    let mut collatz_state = CollatzState {\n        current_value: 0,\n        step_count: 0,\n        sequence: Vec::new(),\n        max_value_seen: 0,\n    };\n    let steps = collatz_sequence(27, &mut collatz_state);\n    println!(\n        \"Collatz(27) took {} steps, max value = {}\", steps, collatz_state.max_value_seen\n    );\n    let numbers: Vec<i32> = (1..=20).collect();\n    let mut filter_state = FilterState {\n        source_count: 0,\n        filtered_count: 0,\n        filter_criteria: String::new(),\n        results: Vec::new(),\n    };\n    let filtered = filter_and_transform(&numbers, 5, &mut filter_state);\n    println!(\"Filtered and transformed: {:?}\", filtered);\n    let mut matrix_state = MatrixState {\n        rows: 0,\n        cols: 0,\n        current_row: 0,\n        current_col: 0,\n        cells_processed: 0,\n    };\n    let matrix = process_matrix(4, 5, &mut matrix_state);\n    println!(\"Matrix: {} rows x {} cols\", matrix.len(), matrix[0].len());\n    let haystack: Vec<i32> = (0..100).collect();\n    let mut search_state = SearchState {\n        target: 0,\n        elements_checked: 0,\n        found_at_index: None,\n    };\n    let found = linear_search(&haystack, 42, &mut search_state);\n    println!(\n        \"Search result: {:?} (checked {} elements)\", found, search_state.elements_checked\n    );\n    let values: Vec<f64> = vec![1.5, 2.3, 4.7, 3.1, 5.9, 2.8, 6.4, 1.2, 3.8, 4.5];\n    let mut stats_state = StatsState {\n        count: 0,\n        sum: 0.0,\n        min: None,\n        max: None,\n        mean: 0.0,\n    };\n    let mean = compute_statistics(&values, &mut stats_state);\n    println!(\n        \"Mean = {:.2}, Min = {:.2}, Max = {:.2}\", mean, stats_state.min.unwrap_or(0.0),\n        stats_state.max.unwrap_or(0.0)\n    );\n}\n"
+    },
+    {
+      "id": "loops::sum_range",
+      "label": "Sum Range",
+      "kind": "function",
+      "module_path": "loops",
+      "file": "examples/loops.rs",
+      "line": 31,
+      "source": "fn sum_range(start: i64, end: i64, state: &mut LoopState) -> i64 {\n    state.emit_snapshot(&format!(\"summing range {}..{}\", start, end));\n    for i in start..=end {\n        state.iteration += 1;\n        state.total_iterations += 1;\n        state.accumulated_value += i;\n        state\n            .emit_snapshot(\n                &format!(\n                    \"iter {}: added {}, sum = {}\", state.iteration, i, state\n                    .accumulated_value\n                ),\n            );\n    }\n    state.emit_snapshot(\"range sum complete\");\n    state.accumulated_value\n}\n"
+    }
+  ],
+  "edges": [
+    {
+      "from": "loops::collatz_sequence",
+      "to": "loops::CollatzState",
+      "kind": "data_flow",
+      "label": "reached 1 in 111 steps, max = 9232"
+    },
+    {
+      "from": "loops::compute_statistics",
+      "to": "loops::StatsState",
+      "kind": "data_flow",
+      "label": "n=10, mean=3.62, min=1.20, max=6.40"
+    },
+    {
+      "from": "loops::filter_and_transform",
+      "to": "loops::FilterState",
+      "kind": "data_flow",
+      "label": "filtered 20 -> 8 items"
+    },
+    {
+      "from": "loops::linear_search",
+      "to": "loops::SearchState",
+      "kind": "data_flow",
+      "label": "found 42 at index 42 after 43 checks"
+    },
+    {
+      "from": "loops::process_matrix",
+      "to": "loops::MatrixState",
+      "kind": "data_flow",
+      "label": "matrix complete"
+    },
+    {
+      "from": "loops::run_examples",
+      "to": "loops::collatz_sequence",
+      "kind": "control_flow"
+    },
+    {
+      "from": "loops::run_examples",
+      "to": "loops::compute_statistics",
+      "kind": "control_flow"
+    },
+    {
+      "from": "loops::run_examples",
+      "to": "loops::filter_and_transform",
+      "kind": "control_flow"
+    },
+    {
+      "from": "loops::run_examples",
+      "to": "loops::linear_search",
+      "kind": "control_flow"
+    },
+    {
+      "from": "loops::run_examples",
+      "to": "loops::process_matrix",
+      "kind": "control_flow"
+    },
+    {
+      "from": "loops::run_examples",
+      "to": "loops::sum_range",
+      "kind": "control_flow"
+    },
+    {
+      "from": "loops::sum_range",
+      "to": "loops::LoopState",
+      "kind": "data_flow",
+      "label": "range sum complete"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "loops::run_examples",
+      "kind": "function_enter",
+      "title": "enter Run Loop Examples",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "loops::sum_range",
+      "kind": "function_enter",
+      "title": "enter Sum Range",
+      "values": [
+        {
+          "name": "start",
+          "preview": "type i64"
+        },
+        {
+          "name": "end",
+          "preview": "type i64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut loops::LoopState"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "summing range 1..10",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 0,\n    total_iterations: 0,\n    accumulated_value: 0,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 1: added 1, sum = 1",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 1,\n    total_iterations: 1,\n    accumulated_value: 1,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 2: added 2, sum = 3",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 2,\n    total_iterations: 2,\n    accumulated_value: 3,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 3: added 3, sum = 6",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 3,\n    total_iterations: 3,\n    accumulated_value: 6,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 4: added 4, sum = 10",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 4,\n    total_iterations: 4,\n    accumulated_value: 10,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 5: added 5, sum = 15",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 5,\n    total_iterations: 5,\n    accumulated_value: 15,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 6: added 6, sum = 21",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 6,\n    total_iterations: 6,\n    accumulated_value: 21,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 7: added 7, sum = 28",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 7,\n    total_iterations: 7,\n    accumulated_value: 28,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 8: added 8, sum = 36",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 8,\n    total_iterations: 8,\n    accumulated_value: 36,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 9: added 9, sum = 45",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 9,\n    total_iterations: 9,\n    accumulated_value: 45,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "iter 10: added 10, sum = 55",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 10,\n    total_iterations: 10,\n    accumulated_value: 55,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "loops::LoopState",
+      "kind": "value_snapshot",
+      "title": "range sum complete",
+      "values": [
+        {
+          "name": "Loop State",
+          "preview": "LoopState {\n    iteration: 10,\n    total_iterations: 10,\n    accumulated_value: 55,\n    items_processed: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "loops::sum_range",
+      "kind": "function_exit",
+      "title": "return sum_range",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i64"
+        }
+      ]
+    },
+    {
+      "seq": 16,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "loops::collatz_sequence",
+      "kind": "function_enter",
+      "title": "enter Collatz Sequence",
+      "values": [
+        {
+          "name": "start",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut loops::CollatzState"
+        }
+      ]
+    },
+    {
+      "seq": 17,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "starting collatz from 27",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 27,\n    step_count: 0,\n    sequence: [\n        27,\n    ],\n    max_value_seen: 27,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 18,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 1: value = 82",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 82,\n    step_count: 1,\n    sequence: [\n        27,\n        82,\n    ],\n    max_value_seen: 82,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 19,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 2: value = 41",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 41,\n    step_count: 2,\n    sequence: [\n        27,\n        82,\n        41,\n    ],\n    max_value_seen: 82,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 20,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 3: value = 124",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 124,\n    step_count: 3,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n    ],\n    max_value_seen: 124,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 21,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 4: value = 62",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 62,\n    step_count: 4,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n    ],\n    max_value_seen: 124,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 22,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 5: value = 31",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 31,\n    step_count: 5,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n    ],\n    max_value_seen: 124,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 23,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 6: value = 94",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 94,\n    step_count: 6,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n    ],\n    max_value_seen: 124,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 24,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 7: value = 47",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 47,\n    step_count: 7,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n    ],\n    max_value_seen: 124,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 25,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 8: value = 142",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 142,\n    step_count: 8,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n    ],\n    max_value_seen: 142,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 26,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 9: value = 71",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 71,\n    step_count: 9,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n    ],\n    max_value_seen: 142,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 27,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 10: value = 214",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 214,\n    step_count: 10,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n    ],\n    max_value_seen: 214,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 28,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 11: value = 107",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 107,\n    step_count: 11,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n    ],\n    max_value_seen: 214,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 12: value = 322",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 322,\n    step_count: 12,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n    ],\n    max_value_seen: 322,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 13: value = 161",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 161,\n    step_count: 13,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n    ],\n    max_value_seen: 322,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 31,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 14: value = 484",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 484,\n    step_count: 14,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 32,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 15: value = 242",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 242,\n    step_count: 15,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 33,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 16: value = 121",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 121,\n    step_count: 16,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 34,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 17: value = 364",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 364,\n    step_count: 17,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 35,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 18: value = 182",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 182,\n    step_count: 18,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 36,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 19: value = 91",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 91,\n    step_count: 19,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 37,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 20: value = 274",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 274,\n    step_count: 20,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 38,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 21: value = 137",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 137,\n    step_count: 21,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 39,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 22: value = 412",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 412,\n    step_count: 22,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 40,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 23: value = 206",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 206,\n    step_count: 23,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 24: value = 103",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 103,\n    step_count: 24,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 42,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 25: value = 310",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 310,\n    step_count: 25,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 43,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 26: value = 155",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 155,\n    step_count: 26,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 44,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 27: value = 466",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 466,\n    step_count: 27,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 45,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 28: value = 233",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 233,\n    step_count: 28,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n    ],\n    max_value_seen: 484,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 29: value = 700",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 700,\n    step_count: 29,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n    ],\n    max_value_seen: 700,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 47,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 30: value = 350",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 350,\n    step_count: 30,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n    ],\n    max_value_seen: 700,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 31: value = 175",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 175,\n    step_count: 31,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n    ],\n    max_value_seen: 700,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 49,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 32: value = 526",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 526,\n    step_count: 32,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n    ],\n    max_value_seen: 700,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 50,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 33: value = 263",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 263,\n    step_count: 33,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n    ],\n    max_value_seen: 700,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 51,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 34: value = 790",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 790,\n    step_count: 34,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n    ],\n    max_value_seen: 790,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 52,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 35: value = 395",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 395,\n    step_count: 35,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n    ],\n    max_value_seen: 790,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 53,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 36: value = 1186",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1186,\n    step_count: 36,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n    ],\n    max_value_seen: 1186,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 54,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 37: value = 593",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 593,\n    step_count: 37,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n    ],\n    max_value_seen: 1186,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 55,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 38: value = 1780",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1780,\n    step_count: 38,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 56,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 39: value = 890",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 890,\n    step_count: 39,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 57,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 40: value = 445",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 445,\n    step_count: 40,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 58,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 41: value = 1336",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1336,\n    step_count: 41,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 42: value = 668",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 668,\n    step_count: 42,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 60,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 43: value = 334",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 334,\n    step_count: 43,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 61,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 44: value = 167",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 167,\n    step_count: 44,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 62,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 45: value = 502",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 502,\n    step_count: 45,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 63,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 46: value = 251",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 251,\n    step_count: 46,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 64,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 47: value = 754",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 754,\n    step_count: 47,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 65,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 48: value = 377",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 377,\n    step_count: 48,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 66,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 49: value = 1132",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1132,\n    step_count: 49,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 67,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 50: value = 566",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 566,\n    step_count: 50,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 68,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 51: value = 283",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 283,\n    step_count: 51,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 69,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 52: value = 850",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 850,\n    step_count: 52,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 70,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 53: value = 425",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 425,\n    step_count: 53,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 71,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 54: value = 1276",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1276,\n    step_count: 54,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 72,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 55: value = 638",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 638,\n    step_count: 55,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 73,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 56: value = 319",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 319,\n    step_count: 56,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 74,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 57: value = 958",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 958,\n    step_count: 57,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 75,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 58: value = 479",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 479,\n    step_count: 58,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 76,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 59: value = 1438",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1438,\n    step_count: 59,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 77,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 60: value = 719",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 719,\n    step_count: 60,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n    ],\n    max_value_seen: 1780,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 78,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 61: value = 2158",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 2158,\n    step_count: 61,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n    ],\n    max_value_seen: 2158,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 79,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 62: value = 1079",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1079,\n    step_count: 62,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n    ],\n    max_value_seen: 2158,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 80,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 63: value = 3238",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 3238,\n    step_count: 63,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n    ],\n    max_value_seen: 3238,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 81,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 64: value = 1619",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1619,\n    step_count: 64,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n    ],\n    max_value_seen: 3238,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 82,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 65: value = 4858",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 4858,\n    step_count: 65,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n    ],\n    max_value_seen: 4858,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 83,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 66: value = 2429",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 2429,\n    step_count: 66,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n    ],\n    max_value_seen: 4858,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 84,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 67: value = 7288",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 7288,\n    step_count: 67,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 85,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 68: value = 3644",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 3644,\n    step_count: 68,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 86,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 69: value = 1822",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1822,\n    step_count: 69,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 87,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 70: value = 911",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 911,\n    step_count: 70,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 88,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 71: value = 2734",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 2734,\n    step_count: 71,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 89,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 72: value = 1367",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1367,\n    step_count: 72,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 90,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 73: value = 4102",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 4102,\n    step_count: 73,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 91,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 74: value = 2051",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 2051,\n    step_count: 74,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 92,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 75: value = 6154",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 6154,\n    step_count: 75,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 93,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 76: value = 3077",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 3077,\n    step_count: 76,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n    ],\n    max_value_seen: 7288,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 94,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 77: value = 9232",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 9232,\n    step_count: 77,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 95,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 78: value = 4616",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 4616,\n    step_count: 78,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 96,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 79: value = 2308",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 2308,\n    step_count: 79,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 97,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 80: value = 1154",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1154,\n    step_count: 80,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 98,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 81: value = 577",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 577,\n    step_count: 81,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 99,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 82: value = 1732",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1732,\n    step_count: 82,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 100,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 83: value = 866",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 866,\n    step_count: 83,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 101,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 84: value = 433",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 433,\n    step_count: 84,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 102,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 85: value = 1300",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1300,\n    step_count: 85,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 103,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 86: value = 650",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 650,\n    step_count: 86,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 104,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 87: value = 325",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 325,\n    step_count: 87,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 105,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 88: value = 976",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 976,\n    step_count: 88,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 106,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 89: value = 488",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 488,\n    step_count: 89,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 107,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 90: value = 244",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 244,\n    step_count: 90,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 108,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 91: value = 122",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 122,\n    step_count: 91,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 109,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 92: value = 61",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 61,\n    step_count: 92,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 110,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 93: value = 184",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 184,\n    step_count: 93,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 111,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 94: value = 92",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 92,\n    step_count: 94,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 112,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 95: value = 46",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 46,\n    step_count: 95,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 113,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 96: value = 23",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 23,\n    step_count: 96,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 114,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 97: value = 70",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 70,\n    step_count: 97,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 115,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 98: value = 35",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 35,\n    step_count: 98,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 116,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 99: value = 106",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 106,\n    step_count: 99,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 117,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 100: value = 53",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 53,\n    step_count: 100,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 118,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 101: value = 160",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 160,\n    step_count: 101,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 119,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 102: value = 80",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 80,\n    step_count: 102,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 120,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 103: value = 40",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 40,\n    step_count: 103,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 121,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 104: value = 20",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 20,\n    step_count: 104,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 122,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 105: value = 10",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 10,\n    step_count: 105,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 123,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 106: value = 5",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 5,\n    step_count: 106,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n        5,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 124,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 107: value = 16",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 16,\n    step_count: 107,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n        5,\n        16,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 125,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 108: value = 8",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 8,\n    step_count: 108,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n        5,\n        16,\n        8,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 126,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 109: value = 4",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 4,\n    step_count: 109,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n        5,\n        16,\n        8,\n        4,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 127,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 110: value = 2",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 2,\n    step_count: 110,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n        5,\n        16,\n        8,\n        4,\n        2,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 128,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "step 111: value = 1",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1,\n    step_count: 111,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n        5,\n        16,\n        8,\n        4,\n        2,\n        1,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 129,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "loops::CollatzState",
+      "kind": "value_snapshot",
+      "title": "reached 1 in 111 steps, max = 9232",
+      "values": [
+        {
+          "name": "Collatz State",
+          "preview": "CollatzState {\n    current_value: 1,\n    step_count: 111,\n    sequence: [\n        27,\n        82,\n        41,\n        124,\n        62,\n        31,\n        94,\n        47,\n        142,\n        71,\n        214,\n        107,\n        322,\n        161,\n        484,\n        242,\n        121,\n        364,\n        182,\n        91,\n        274,\n        137,\n        412,\n        206,\n        103,\n        310,\n        155,\n        466,\n        233,\n        700,\n        350,\n        175,\n        526,\n        263,\n        790,\n        395,\n        1186,\n        593,\n        1780,\n        890,\n        445,\n        1336,\n        668,\n        334,\n        167,\n        502,\n        251,\n        754,\n        377,\n        1132,\n        566,\n        283,\n        850,\n        425,\n        1276,\n        638,\n        319,\n        958,\n        479,\n        1438,\n        719,\n        2158,\n        1079,\n        3238,\n        1619,\n        4858,\n        2429,\n        7288,\n        3644,\n        1822,\n        911,\n        2734,\n        1367,\n        4102,\n        2051,\n        6154,\n        3077,\n        9232,\n        4616,\n        2308,\n        1154,\n        577,\n        1732,\n        866,\n        433,\n        1300,\n        650,\n        325,\n        976,\n        488,\n        244,\n        122,\n        61,\n        184,\n        92,\n        46,\n        23,\n        70,\n        35,\n        106,\n        53,\n        160,\n        80,\n        40,\n        20,\n        10,\n        5,\n        16,\n        8,\n        4,\n        2,\n        1,\n    ],\n    max_value_seen: 9232,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 130,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "loops::collatz_sequence",
+      "kind": "function_exit",
+      "title": "return collatz_sequence",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 131,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "loops::filter_and_transform",
+      "kind": "function_enter",
+      "title": "enter Filter and Transform",
+      "values": [
+        {
+          "name": "numbers",
+          "preview": "type &[i32]"
+        },
+        {
+          "name": "threshold",
+          "preview": "type i32"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut loops::FilterState"
+        }
+      ]
+    },
+    {
+      "seq": 132,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "loops::FilterState",
+      "kind": "value_snapshot",
+      "title": "starting filter operation",
+      "values": [
+        {
+          "name": "Filter State",
+          "preview": "FilterState {\n    source_count: 20,\n    filtered_count: 0,\n    filter_criteria: \"n > 5 && n % 2 == 0\",\n    results: [],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 133,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "loops::FilterState",
+      "kind": "value_snapshot",
+      "title": "filtered 20 -> 8 items",
+      "values": [
+        {
+          "name": "Filter State",
+          "preview": "FilterState {\n    source_count: 20,\n    filtered_count: 8,\n    filter_criteria: \"n > 5 && n % 2 == 0\",\n    results: [\n        12,\n        16,\n        20,\n        24,\n        28,\n        32,\n        36,\n        40,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 134,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "loops::filter_and_transform",
+      "kind": "function_exit",
+      "title": "return filter_and_transform",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::vec::Vec<i32>"
+        }
+      ]
+    },
+    {
+      "seq": 135,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "loops::process_matrix",
+      "kind": "function_enter",
+      "title": "enter Process Matrix",
+      "values": [
+        {
+          "name": "rows",
+          "preview": "type usize"
+        },
+        {
+          "name": "cols",
+          "preview": "type usize"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut loops::MatrixState"
+        }
+      ]
+    },
+    {
+      "seq": 136,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "loops::MatrixState",
+      "kind": "value_snapshot",
+      "title": "creating 4x5 matrix",
+      "values": [
+        {
+          "name": "Matrix State",
+          "preview": "MatrixState {\n    rows: 4,\n    cols: 5,\n    current_row: 0,\n    current_col: 0,\n    cells_processed: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 137,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "loops::MatrixState",
+      "kind": "value_snapshot",
+      "title": "processed 5 cells, current [0,4] = 4",
+      "values": [
+        {
+          "name": "Matrix State",
+          "preview": "MatrixState {\n    rows: 4,\n    cols: 5,\n    current_row: 0,\n    current_col: 4,\n    cells_processed: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 138,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "loops::MatrixState",
+      "kind": "value_snapshot",
+      "title": "processed 10 cells, current [1,4] = 9",
+      "values": [
+        {
+          "name": "Matrix State",
+          "preview": "MatrixState {\n    rows: 4,\n    cols: 5,\n    current_row: 1,\n    current_col: 4,\n    cells_processed: 10,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 139,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "loops::MatrixState",
+      "kind": "value_snapshot",
+      "title": "processed 15 cells, current [2,4] = 14",
+      "values": [
+        {
+          "name": "Matrix State",
+          "preview": "MatrixState {\n    rows: 4,\n    cols: 5,\n    current_row: 2,\n    current_col: 4,\n    cells_processed: 15,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 140,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "loops::MatrixState",
+      "kind": "value_snapshot",
+      "title": "processed 20 cells, current [3,4] = 19",
+      "values": [
+        {
+          "name": "Matrix State",
+          "preview": "MatrixState {\n    rows: 4,\n    cols: 5,\n    current_row: 3,\n    current_col: 4,\n    cells_processed: 20,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 141,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "loops::MatrixState",
+      "kind": "value_snapshot",
+      "title": "matrix complete",
+      "values": [
+        {
+          "name": "Matrix State",
+          "preview": "MatrixState {\n    rows: 4,\n    cols: 5,\n    current_row: 3,\n    current_col: 4,\n    cells_processed: 20,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 142,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "loops::process_matrix",
+      "kind": "function_exit",
+      "title": "return process_matrix",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::vec::Vec<alloc::vec::Vec<i32>>"
+        }
+      ]
+    },
+    {
+      "seq": 143,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "loops::linear_search",
+      "kind": "function_enter",
+      "title": "enter Linear Search",
+      "values": [
+        {
+          "name": "haystack",
+          "preview": "type &[i32]"
+        },
+        {
+          "name": "needle",
+          "preview": "type i32"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut loops::SearchState"
+        }
+      ]
+    },
+    {
+      "seq": 144,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "loops::SearchState",
+      "kind": "value_snapshot",
+      "title": "searching for 42 in 100 elements",
+      "values": [
+        {
+          "name": "Search State",
+          "preview": "SearchState {\n    target: 42,\n    elements_checked: 0,\n    found_at_index: None,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 145,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "loops::SearchState",
+      "kind": "value_snapshot",
+      "title": "checked 10 elements, not found yet",
+      "values": [
+        {
+          "name": "Search State",
+          "preview": "SearchState {\n    target: 42,\n    elements_checked: 10,\n    found_at_index: None,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 146,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "loops::SearchState",
+      "kind": "value_snapshot",
+      "title": "checked 20 elements, not found yet",
+      "values": [
+        {
+          "name": "Search State",
+          "preview": "SearchState {\n    target: 42,\n    elements_checked: 20,\n    found_at_index: None,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 147,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "loops::SearchState",
+      "kind": "value_snapshot",
+      "title": "checked 30 elements, not found yet",
+      "values": [
+        {
+          "name": "Search State",
+          "preview": "SearchState {\n    target: 42,\n    elements_checked: 30,\n    found_at_index: None,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 148,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "loops::SearchState",
+      "kind": "value_snapshot",
+      "title": "checked 40 elements, not found yet",
+      "values": [
+        {
+          "name": "Search State",
+          "preview": "SearchState {\n    target: 42,\n    elements_checked: 40,\n    found_at_index: None,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 149,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "loops::SearchState",
+      "kind": "value_snapshot",
+      "title": "found 42 at index 42 after 43 checks",
+      "values": [
+        {
+          "name": "Search State",
+          "preview": "SearchState {\n    target: 42,\n    elements_checked: 43,\n    found_at_index: Some(\n        42,\n    ),\n}"
+        }
+      ]
+    },
+    {
+      "seq": 150,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "loops::linear_search",
+      "kind": "function_exit",
+      "title": "panic linear_search",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 151,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "loops::compute_statistics",
+      "kind": "function_enter",
+      "title": "enter Compute Statistics",
+      "values": [
+        {
+          "name": "values",
+          "preview": "type &[f64]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut loops::StatsState"
+        }
+      ]
+    },
+    {
+      "seq": 152,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "loops::StatsState",
+      "kind": "value_snapshot",
+      "title": "computing stats for 10 values",
+      "values": [
+        {
+          "name": "Stats State",
+          "preview": "StatsState {\n    count: 0,\n    sum: 0.0,\n    min: None,\n    max: None,\n    mean: 0.0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 153,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "loops::StatsState",
+      "kind": "value_snapshot",
+      "title": "n=5, mean=3.50, min=1.50, max=5.90",
+      "values": [
+        {
+          "name": "Stats State",
+          "preview": "StatsState {\n    count: 5,\n    sum: 17.5,\n    min: Some(\n        1.5,\n    ),\n    max: Some(\n        5.9,\n    ),\n    mean: 3.5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 154,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "loops::StatsState",
+      "kind": "value_snapshot",
+      "title": "n=10, mean=3.62, min=1.20, max=6.40",
+      "values": [
+        {
+          "name": "Stats State",
+          "preview": "StatsState {\n    count: 10,\n    sum: 36.2,\n    min: Some(\n        1.2,\n    ),\n    max: Some(\n        6.4,\n    ),\n    mean: 3.62,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 155,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "loops::compute_statistics",
+      "kind": "function_exit",
+      "title": "return compute_statistics",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type f64"
+        }
+      ]
+    },
+    {
+      "seq": 156,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "loops::run_examples",
+      "kind": "function_exit",
+      "title": "return run_examples",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    }
+  ]
+}
