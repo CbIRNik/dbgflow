@@ -1,78 +1,92 @@
 import { useEffect, useRef } from "react"
-import {
-  Background,
-  ReactFlow,
-  useNodesInitialized,
-  useReactFlow,
-} from "@xyflow/react"
+import { Background, ReactFlow, useNodesInitialized, useReactFlow } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import GraphNode from "./GraphNode"
 
 const nodeTypes = {
   inspector: GraphNode,
 }
+const MIN_CANVAS_ZOOM = 0.16
+const MAX_CANVAS_ZOOM = 1.8
+const FIT_VIEW_PADDING = 0.16
 
-function ViewportSync({ fitViewKey }) {
+function ViewportSync({ fitViewKey, nodeCount }) {
   const reactFlow = useReactFlow()
   const nodesInitialized = useNodesInitialized()
-  const lastFitViewKeyRef = useRef("")
+  const fittedKeyRef = useRef("")
 
   useEffect(() => {
-    if (!nodesInitialized || !fitViewKey) {
+    if (!fitViewKey || nodeCount === 0 || !nodesInitialized) {
       return
     }
 
-    if (lastFitViewKeyRef.current === fitViewKey) {
+    if (fittedKeyRef.current === fitViewKey) {
       return
     }
 
-    lastFitViewKeyRef.current = fitViewKey
+    let frameId = 0
+    let attempts = 0
 
-    const frameId = window.requestAnimationFrame(() => {
+    const fit = () => {
+      attempts += 1
       void reactFlow.fitView({
-        duration: 480,
+        duration: attempts === 1 ? 0 : 360,
         maxZoom: 1.18,
-        minZoom: 0.42,
-        padding: 0.22,
+        minZoom: MIN_CANVAS_ZOOM,
+        padding: FIT_VIEW_PADDING,
       })
-    })
 
+      if (attempts >= 6) {
+        fittedKeyRef.current = fitViewKey
+        return
+      }
+
+      frameId = window.requestAnimationFrame(fit)
+    }
+
+    frameId = window.requestAnimationFrame(fit)
     return () => {
       window.cancelAnimationFrame(frameId)
     }
-  }, [fitViewKey, nodesInitialized, reactFlow])
+  }, [fitViewKey, nodeCount, nodesInitialized, reactFlow])
 
   return null
 }
 
 export default function WorkflowCanvas({
+  canvasMode,
   edges,
   fitViewKey,
   nodes,
-  onNodeSelect,
   onNodesChange,
+  onNodeSelect,
   onPaneClick,
 }) {
   return (
-    <section className="workflow-stage workflow-stage--full">
+    <section className={`workflow-stage workflow-stage--full workflow-stage--${canvasMode}`}>
       <ReactFlow
+        key={fitViewKey || "workflow-canvas"}
         edges={edges}
         elementsSelectable={false}
-        maxZoom={1.8}
-        minZoom={0.42}
+        maxZoom={MAX_CANVAS_ZOOM}
+        minZoom={MIN_CANVAS_ZOOM}
         nodeTypes={nodeTypes}
         nodes={nodes}
         nodesConnectable={false}
-        nodesDraggable={false}
+        nodesDraggable={canvasMode === "move-nodes"}
         onNodeClick={(_, node) => {
-          onNodeSelect(node.id)
+          onNodeSelect?.(node.id)
         }}
         onNodesChange={onNodesChange}
+        onEdgeClick={() => {
+          onPaneClick?.()
+        }}
         onPaneClick={onPaneClick}
+        panOnDrag={canvasMode === "pan-canvas"}
         proOptions={{ hideAttribution: true }}
         selectNodesOnDrag={false}
       >
-        <ViewportSync fitViewKey={fitViewKey} />
+        <ViewportSync fitViewKey={fitViewKey} nodeCount={nodes.length} />
         <Background color="#1e1e1e" gap={22} size={1.1} variant="dots" />
       </ReactFlow>
     </section>

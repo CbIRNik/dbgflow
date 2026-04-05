@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { fetchSession, fetchStatus, triggerRerun as triggerServerRerun } from "../utils/api.js";
 import { DEFAULT_SERVER_STATUS, POLL_INTERVAL_MS } from "../utils/constants.js";
 
+function isServerStatusEqual(left, right) {
+  return (
+    left.running === right.running &&
+    left.can_rerun === right.can_rerun &&
+    left.generation === right.generation &&
+    left.session_title === right.session_title &&
+    left.last_error === right.last_error
+  );
+}
+
 /**
  * Hook for session fetching and polling.
  * @returns {{ session: object|null, serverStatus: object, error: string, triggerRerun: () => Promise<void> }}
@@ -27,7 +37,9 @@ export function useSession() {
         if (cancelled) {
           return;
         }
-        setServerStatus(status);
+        setServerStatus((current) =>
+          isServerStatusEqual(current, status) ? current : status
+        );
 
         const generationChanged = status.generation !== generationRef.current;
         if (!forceSessionLoad && !generationChanged && sessionRef.current) {

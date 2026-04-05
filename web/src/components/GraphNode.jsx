@@ -1,3 +1,4 @@
+import { memo, useRef } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Play } from "lucide-react"
 import { Button } from "./ui"
@@ -21,7 +22,8 @@ function formatNodeLabel(node) {
   return node.label
 }
 
-export default function GraphNode({ data, selected }) {
+function GraphNode({ data, selected }) {
+  const pointerStateRef = useRef(null)
   const node = data.node
   const kind = KIND_CONFIG[node.kind] ?? KIND_CONFIG.function
   const isSelected = data.isSelected || selected
@@ -29,15 +31,13 @@ export default function GraphNode({ data, selected }) {
     data.executionState === "running"
       ? "workflow-node--running-static"
       : `workflow-node--${data.executionState}`
-  const animationClassName = data.isAnimating
-    ? "workflow-node--running-animated"
-    : ""
+  const interactionModeClassName =
+    data.canvasMode === "move-nodes" ? "workflow-node--draggable" : ""
   const statusClassName =
     data.executionState === "running"
       ? [
           "workflow-node__status",
           "workflow-node__status--running-static",
-          data.isAnimating ? "workflow-node__status--running-animated" : "",
         ]
           .filter(Boolean)
           .join(" ")
@@ -51,9 +51,10 @@ export default function GraphNode({ data, selected }) {
       aria-pressed={isSelected}
       className={[
         "workflow-node",
+        "nopan",
         isSelected ? "is-selected" : "",
         executionStateClassName,
-        animationClassName,
+        interactionModeClassName,
       ]
         .filter(Boolean)
         .join(" ")}
@@ -62,14 +63,46 @@ export default function GraphNode({ data, selected }) {
           return
         }
 
+        pointerStateRef.current = {
+          moved: false,
+          x: event.clientX,
+          y: event.clientY,
+        }
         event.currentTarget.focus()
-        openNodeDetails()
+        if (data.canvasMode !== "move-nodes") {
+          openNodeDetails()
+        }
+      }}
+      onPointerMove={(event) => {
+        if (!pointerStateRef.current || pointerStateRef.current.moved) {
+          return
+        }
+
+        const deltaX = Math.abs(event.clientX - pointerStateRef.current.x)
+        const deltaY = Math.abs(event.clientY - pointerStateRef.current.y)
+        if (deltaX > 6 || deltaY > 6) {
+          pointerStateRef.current.moved = true
+        }
+      }}
+      onClick={() => {
+        if (data.canvasMode !== "move-nodes") {
+          pointerStateRef.current = null
+          return
+        }
+
+        if (!pointerStateRef.current?.moved) {
+          openNodeDetails()
+        }
+        pointerStateRef.current = null
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault()
           openNodeDetails()
         }
+      }}
+      onPointerCancel={() => {
+        pointerStateRef.current = null
       }}
       role="button"
       style={{ width: data.dimensions.width }}
@@ -89,7 +122,7 @@ export default function GraphNode({ data, selected }) {
 
       {data.canRunChain ? (
         <Button
-          className="workflow-node__action gap-2"
+          className="workflow-node__action nodrag nopan gap-2"
           onClick={(event) => {
             event.stopPropagation()
             data.onRunChain(node.id)
@@ -111,3 +144,19 @@ export default function GraphNode({ data, selected }) {
     </div>
   )
 }
+
+function areGraphNodePropsEqual(previousProps, nextProps) {
+  return (
+    previousProps.selected === nextProps.selected &&
+    previousProps.data.canvasMode === nextProps.data.canvasMode &&
+    previousProps.data.canRunChain === nextProps.data.canRunChain &&
+    previousProps.data.executionState === nextProps.data.executionState &&
+    previousProps.data.isSelected === nextProps.data.isSelected &&
+    previousProps.data.dimensions.width === nextProps.data.dimensions.width &&
+    previousProps.data.node.id === nextProps.data.node.id &&
+    previousProps.data.node.kind === nextProps.data.node.kind &&
+    previousProps.data.node.label === nextProps.data.node.label
+  )
+}
+
+export default memo(GraphNode, areGraphNodePropsEqual)

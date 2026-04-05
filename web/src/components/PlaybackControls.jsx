@@ -1,7 +1,15 @@
-import { Gauge, Pause, Play, StepBack, StepForward, Workflow } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Gauge, Menu, Pause, Play, StepBack, StepForward, Workflow } from "lucide-react"
 import { PLAYBACK_SPEEDS } from "../utils/constants.js"
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -77,12 +85,60 @@ function SpeedDropdown({ onSpeedChange, playbackSpeed }) {
   )
 }
 
+function PlaybackOverflowMenu({
+  canvasMode,
+  onCanvasModeChange,
+  onSpeedChange,
+  playbackSpeed,
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          aria-label="More playback controls"
+          className="playback-bar__menu-button"
+          size="icon"
+          type="button"
+          variant="outline"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 border-border bg-popover/98">
+        <DropdownMenuLabel>Playback Speed</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={(value) => onSpeedChange(Number(value))}
+          value={String(playbackSpeed)}
+        >
+          {PLAYBACK_SPEEDS.map((speed) => (
+            <DropdownMenuRadioItem key={speed} value={String(speed)}>
+              {speed}x
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Canvas Mode</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={onCanvasModeChange}
+          value={canvasMode}
+        >
+          <DropdownMenuRadioItem value="pan-canvas">Pan</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="move-nodes">Nodes</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export default function PlaybackControls({
+  availableWidth,
+  canvasMode,
   currentStepLabel,
   hasDetailsPanel,
   isPlaying,
   onPause,
   onPlay,
+  onCanvasModeChange,
   onRunSelect,
   onSkipEnd,
   onSkipStart,
@@ -96,6 +152,50 @@ export default function PlaybackControls({
   totalEvents,
 }) {
   const currentStep = Math.max(1, playbackIndex + 1)
+  const shouldWrapTopRow = availableWidth < (hasDetailsPanel ? 900 : 760)
+  const shouldCollapseAuxControls = availableWidth < (hasDetailsPanel ? 1120 : 860)
+  const [displayStep, setDisplayStep] = useState(currentStep)
+  const displayStepRef = useRef(currentStep)
+
+  useEffect(() => {
+    displayStepRef.current = displayStep
+  }, [displayStep])
+
+  useEffect(() => {
+    const startValue = displayStepRef.current
+    const targetValue = currentStep
+
+    if (Math.abs(targetValue - startValue) < 0.001) {
+      setDisplayStep(targetValue)
+      return
+    }
+
+    const durationMs = Math.min(420, 180 + Math.abs(targetValue - startValue) * 70)
+    let animationFrameId = 0
+    let startTime = 0
+
+    const animate = (timestamp) => {
+      if (!startTime) {
+        startTime = timestamp
+      }
+
+      const progress = Math.min(1, (timestamp - startTime) / durationMs)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const nextValue = startValue + (targetValue - startValue) * eased
+
+      displayStepRef.current = nextValue
+      setDisplayStep(nextValue)
+
+      if (progress < 1) {
+        animationFrameId = window.requestAnimationFrame(animate)
+      }
+    }
+
+    animationFrameId = window.requestAnimationFrame(animate)
+    return () => {
+      window.cancelAnimationFrame(animationFrameId)
+    }
+  }, [currentStep])
 
   const togglePlayback = () => {
     if (isPlaying) {
@@ -108,37 +208,44 @@ export default function PlaybackControls({
 
   return (
     <footer
-      className={`playback-bar ${hasDetailsPanel ? "playback-bar--with-panel" : ""}`}
+      className={[
+        "playback-bar",
+        hasDetailsPanel ? "playback-bar--with-panel" : "",
+        shouldWrapTopRow ? "playback-bar--wrapped" : "",
+        shouldCollapseAuxControls ? "playback-bar--compact" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
-      <div className="playback-bar__controls">
-        <Button
-          onClick={onSkipStart}
-          size="icon"
-          type="button"
-          variant="outline"
-        >
-          <StepBack className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          className="playback-bar__play"
-          onClick={togglePlayback}
-          size="icon"
-          type="button"
-        >
-          {isPlaying ? (
-            <Pause className="h-3.5 w-3.5" />
-          ) : (
-            <Play className="h-3.5 w-3.5" />
-          )}
-        </Button>
-        <Button onClick={onSkipEnd} size="icon" type="button" variant="outline">
-          <StepForward className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      <div className="playback-bar__top-row">
+        <div className="playback-bar__controls">
+          <Button
+            onClick={onSkipStart}
+            size="icon"
+            type="button"
+            variant="outline"
+          >
+            <StepBack className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            className="playback-bar__play"
+            onClick={togglePlayback}
+            size="icon"
+            type="button"
+          >
+            {isPlaying ? (
+              <Pause className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          <Button onClick={onSkipEnd} size="icon" type="button" variant="outline">
+            <StepForward className="h-3.5 w-3.5" />
+          </Button>
+        </div>
 
-      <Separator className="playback-bar__separator" orientation="vertical" />
+        <Separator className="playback-bar__separator" orientation="vertical" />
 
-      <div className="playback-bar__timeline">
         <div className="playback-bar__toolbar">
           <div className="playback-bar__toolbar-group">
             <PipelineDropdown
@@ -154,19 +261,59 @@ export default function PlaybackControls({
             />
           </div>
 
-          <SpeedDropdown
-            onSpeedChange={onSpeedChange}
-            playbackSpeed={playbackSpeed}
-          />
-        </div>
+          <div className="playback-bar__toolbar-actions">
+            {shouldCollapseAuxControls ? (
+              <PlaybackOverflowMenu
+                canvasMode={canvasMode}
+                onCanvasModeChange={onCanvasModeChange}
+                onSpeedChange={onSpeedChange}
+                playbackSpeed={playbackSpeed}
+              />
+            ) : (
+              <>
+                <SpeedDropdown
+                  onSpeedChange={onSpeedChange}
+                  playbackSpeed={playbackSpeed}
+                />
 
+                <div
+                  aria-label="Canvas interaction mode"
+                  className="playback-bar__mode-toggle"
+                  role="group"
+                >
+                  <Button
+                    className={`playback-bar__mode-button ${canvasMode === "pan-canvas" ? "is-active" : ""}`}
+                    onClick={() => onCanvasModeChange("pan-canvas")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Pan
+                  </Button>
+                  <Button
+                    className={`playback-bar__mode-button ${canvasMode === "move-nodes" ? "is-active" : ""}`}
+                    onClick={() => onCanvasModeChange("move-nodes")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Nodes
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="playback-bar__timeline">
         <Slider
           className="playback-bar__slider"
           max={totalEvents}
           min={1}
           onValueChange={([value]) => onStepChange(value - 1)}
           step={1}
-          value={[currentStep]}
+          value={[displayStep]}
         />
 
         {currentStepLabel ? (

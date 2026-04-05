@@ -1,7 +1,13 @@
 import dagre from "@dagrejs/dagre"
 import { NODE_DIMENSIONS } from "./constants.js"
+import { buildReturnSignature, isTypePreview } from "./formatUtils.js"
 
 export function buildGraphModel(session, selectedRun, visibleEvents) {
+  const baseGraphModel = buildBaseGraphModel(session, selectedRun)
+  return buildPlaybackGraphModel(baseGraphModel, visibleEvents)
+}
+
+function buildBaseGraphModel(session, selectedRun) {
   if (!session || !selectedRun) {
     return null
   }
@@ -40,21 +46,8 @@ export function buildGraphModel(session, selectedRun, visibleEvents) {
     selectedRun.rootNodeId,
   )
 
-  const eventsByNode = new Map()
-  const latestEventByNode = new Map()
-  const snapshotByNode = new Map()
-  const linkedTestsByNode = new Map()
-  const failingTargetIds = new Set()
-  const visitedNodeIds = new Set()
   const firstSeenSeqByNode = new Map()
   const previousFocusedNodeIdBySeq = new Map()
-  const inputDataByNode = new Map()
-  const outputDataByNode = new Map()
-  const latestSnapshotByTypeNode = new Map()
-  const runningNodeIds = new Set()
-  const openFunctionNodesByCallId = new Map()
-  const openFunctionCountByNodeId = new Map()
-  const openTestCountByNodeId = new Map()
   let previousEnteredNodeId = null
 
   for (const event of selectedRun.events) {
@@ -86,15 +79,56 @@ export function buildGraphModel(session, selectedRun, visibleEvents) {
     }
   }
 
+  return {
+    session: {
+      ...session,
+      title: selectedRun.title,
+      nodes: renderNodes,
+      edges: renderEdges,
+      events: selectedRun.events,
+    },
+    rootNodeId: selectedRun.rootNodeId,
+    allNodes: allRunNodes,
+    allEdges: allRunEdges,
+    nodeById,
+    typeNodes,
+    typeNodeById,
+    renderNodeIds,
+    testLinkByTestNode,
+    firstSeenSeqByNode,
+    nodeIdByCallId,
+    previousFocusedNodeIdBySeq,
+  }
+}
+
+export function buildPlaybackGraphModel(baseGraphModel, visibleEvents) {
+  if (!baseGraphModel) {
+    return null
+  }
+
+  const eventsByNode = new Map()
+  const latestEventByNode = new Map()
+  const snapshotByNode = new Map()
+  const linkedTestsByNode = new Map()
+  const failingTargetIds = new Set()
+  const visitedNodeIds = new Set()
+  const inputDataByNode = new Map()
+  const outputDataByNode = new Map()
+  const latestSnapshotByTypeNode = new Map()
+  const runningNodeIds = new Set()
+  const openFunctionNodesByCallId = new Map()
+  const openFunctionCountByNodeId = new Map()
+  const openTestCountByNodeId = new Map()
+
   for (const event of visibleEvents) {
     const focusNodeId = focusNodeIdForEvent(
       event,
-      testLinkByTestNode,
-      nodeIdByCallId,
-      selectedRun.rootNodeId,
+      baseGraphModel.testLinkByTestNode,
+      baseGraphModel.nodeIdByCallId,
+      baseGraphModel.rootNodeId,
     )
 
-    if (focusNodeId && renderNodeIds.has(focusNodeId)) {
+    if (focusNodeId && baseGraphModel.renderNodeIds.has(focusNodeId)) {
       pushMapList(eventsByNode, focusNodeId, event)
       latestEventByNode.set(focusNodeId, event)
       visitedNodeIds.add(focusNodeId)
@@ -102,7 +136,7 @@ export function buildGraphModel(session, selectedRun, visibleEvents) {
 
     if (
       event.kind === "function_enter" &&
-      renderNodeIds.has(event.node_id) &&
+      baseGraphModel.renderNodeIds.has(event.node_id) &&
       event.call_id != null
     ) {
       openFunctionNodesByCallId.set(event.call_id, event.node_id)
@@ -124,16 +158,20 @@ export function buildGraphModel(session, selectedRun, visibleEvents) {
       }
     }
 
-    if (event.kind === "function_enter" && renderNodeIds.has(event.node_id)) {
+    if (event.kind === "function_enter" && baseGraphModel.renderNodeIds.has(event.node_id)) {
       pushMapItems(
         inputDataByNode,
         event.node_id,
-        resolveInputRecords(event, latestSnapshotByTypeNode, typeNodes),
+        resolveInputRecords(event, latestSnapshotByTypeNode, baseGraphModel.typeNodes),
       )
     }
 
-    if (event.kind === "function_exit" && renderNodeIds.has(event.node_id)) {
-      pushMapItems(outputDataByNode, event.node_id, formatExitRecords(event))
+    if (event.kind === "function_exit" && baseGraphModel.renderNodeIds.has(event.node_id)) {
+      pushMapItems(
+        outputDataByNode,
+        event.node_id,
+        formatExitRecords(event, baseGraphModel.nodeById.get(event.node_id)),
+      )
     }
 
     if (event.kind === "value_snapshot") {
@@ -141,20 +179,20 @@ export function buildGraphModel(session, selectedRun, visibleEvents) {
       latestSnapshotByTypeNode.set(event.node_id, event)
 
       const sourceNodeId =
-        event.call_id != null ? nodeIdByCallId.get(event.call_id) : null
+        event.call_id != null ? baseGraphModel.nodeIdByCallId.get(event.call_id) : null
 
-      if (sourceNodeId && renderNodeIds.has(sourceNodeId)) {
+      if (sourceNodeId && baseGraphModel.renderNodeIds.has(sourceNodeId)) {
         pushMapItems(
           outputDataByNode,
           sourceNodeId,
-          formatSnapshotRecords(event, typeNodeById.get(event.node_id)),
+          formatSnapshotRecords(event, baseGraphModel.typeNodeById.get(event.node_id)),
         )
       }
     }
 
     if (String(event.kind).startsWith("test_")) {
-      const linkedNodeId = testLinkByTestNode.get(event.node_id)
-      if (linkedNodeId && renderNodeIds.has(linkedNodeId)) {
+      const linkedNodeId = baseGraphModel.testLinkByTestNode.get(event.node_id)
+      if (linkedNodeId && baseGraphModel.renderNodeIds.has(linkedNodeId)) {
         pushMapList(linkedTestsByNode, linkedNodeId, event)
         visitedNodeIds.add(linkedNodeId)
 
@@ -178,34 +216,20 @@ export function buildGraphModel(session, selectedRun, visibleEvents) {
         }
       }
 
-      if (renderNodeIds.has(event.node_id)) {
+      if (baseGraphModel.renderNodeIds.has(event.node_id)) {
         pushMapItems(outputDataByNode, event.node_id, formatTestRecords(event))
       }
     }
   }
 
   return {
-    session: {
-      ...session,
-      title: selectedRun.title,
-      nodes: renderNodes,
-      edges: renderEdges,
-      events: selectedRun.events,
-    },
-    rootNodeId: selectedRun.rootNodeId,
-    allNodes: allRunNodes,
-    allEdges: allRunEdges,
-    nodeById,
+    ...baseGraphModel,
     eventsByNode,
     latestEventByNode,
     snapshotByNode,
     linkedTestsByNode,
     failingTargetIds,
     visitedNodeIds,
-    testLinkByTestNode,
-    firstSeenSeqByNode,
-    nodeIdByCallId,
-    previousFocusedNodeIdBySeq,
     inputDataByNode,
     outputDataByNode,
     runningNodeIds,
@@ -452,6 +476,47 @@ export function buildNodeData(
   }
 }
 
+export function buildCanvasNodeData(
+  graphModel,
+  selectedRun,
+  nodeId,
+  selectedNodeId,
+  activePlaybackNodeId,
+  onRunChain,
+  onOpenDetails,
+  nodeDimensions,
+) {
+  const node = graphModel.nodeById.get(nodeId)
+  if (!node) {
+    return null
+  }
+
+  const tests = graphModel.linkedTestsByNode.get(nodeId) ?? []
+  const latestEvent = graphModel.latestEventByNode.get(nodeId)
+  const hasExecuted = graphModel.visitedNodeIds.has(nodeId)
+  const isActiveStep = activePlaybackNodeId === nodeId
+  const isFailingTarget = graphModel.failingTargetIds.has(nodeId)
+  const isRunning = graphModel.runningNodeIds.has(nodeId) && isActiveStep
+  const status = summarizeStatus(
+    node.kind,
+    tests,
+    latestEvent,
+    isFailingTarget,
+    isRunning,
+    hasExecuted,
+  )
+
+  return {
+    node,
+    executionState: resolveExecutionState(status),
+    isSelected: selectedNodeId === nodeId,
+    canRunChain: selectedRun?.rootNodeId === nodeId,
+    dimensions: nodeDimensions,
+    onRunChain,
+    onOpenDetails,
+  }
+}
+
 export function summarizeStatus(
   kind,
   tests,
@@ -551,12 +616,16 @@ function resolveInputRecords(event, latestSnapshotByTypeNode, typeNodes) {
   return records
 }
 
-function formatExitRecords(event) {
+function formatExitRecords(event, sourceNode) {
   return (event.values ?? []).map((value) => ({
     name: value.name,
-    preview: value.preview,
+    preview:
+      sourceNode?.source && isTypePreview(value.preview)
+        ? buildReturnSignature(sourceNode.source, value.preview)
+        : value.preview,
     title: "return",
     sourceLabel: null,
+    language: sourceNode?.source && isTypePreview(value.preview) ? "rust" : null,
   }))
 }
 

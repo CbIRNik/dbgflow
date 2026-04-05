@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { EVENT_LABEL } from "../utils/constants.js";
 import {
   activeEdgesForEvent,
-  buildGraphModel,
+  buildPlaybackGraphModel,
   focusNodeIdForEvent
 } from "../utils/graphUtils.js";
 
@@ -17,22 +17,23 @@ export function useWorkflowModel({
   const effectivePlaybackIndex = playbackIndex < 0
     ? (isPlaying ? -1 : sortedEvents.length - 1)
     : playbackIndex;
+  const renderedPlaybackIndex = useDeferredValue(effectivePlaybackIndex);
 
   const visibleEvents = useMemo(() => {
-    if (effectivePlaybackIndex < 0) {
+    if (renderedPlaybackIndex < 0) {
       return [];
     }
 
-    return sortedEvents.slice(0, effectivePlaybackIndex + 1);
-  }, [effectivePlaybackIndex, sortedEvents]);
+    return sortedEvents.slice(0, renderedPlaybackIndex + 1);
+  }, [renderedPlaybackIndex, sortedEvents]);
 
-  const activeEvent = effectivePlaybackIndex >= 0
-    ? sortedEvents[effectivePlaybackIndex] ?? null
+  const activeEvent = renderedPlaybackIndex >= 0
+    ? sortedEvents[renderedPlaybackIndex] ?? null
     : null;
 
   const graphModel = useMemo(
-    () => buildGraphModel(session, selectedRun, visibleEvents),
-    [session, selectedRun, visibleEvents]
+    () => buildPlaybackGraphModel(fullGraphModel, visibleEvents),
+    [fullGraphModel, visibleEvents]
   );
 
   const activePlaybackNodeId = useMemo(() => {
