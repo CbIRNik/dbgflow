@@ -11,6 +11,9 @@ import GraphNode from "./GraphNode"
 const nodeTypes = {
   inspector: GraphNode,
 }
+const MIN_CANVAS_ZOOM = 0.16
+const MAX_CANVAS_ZOOM = 1.8
+const FIT_VIEW_PADDING = 0.16
 
 function ViewportSync({ fitViewKey }) {
   const reactFlow = useReactFlow()
@@ -32,8 +35,8 @@ function ViewportSync({ fitViewKey }) {
       void reactFlow.fitView({
         duration: 480,
         maxZoom: 1.18,
-        minZoom: 0.42,
-        padding: 0.22,
+        minZoom: MIN_CANVAS_ZOOM,
+        padding: FIT_VIEW_PADDING,
       })
     })
 
@@ -46,29 +49,35 @@ function ViewportSync({ fitViewKey }) {
 }
 
 export default function WorkflowCanvas({
+  canvasMode,
   edges,
   fitViewKey,
   nodes,
+  onNodeDragStop,
   onNodeSelect,
   onNodesChange,
   onPaneClick,
 }) {
   return (
-    <section className="workflow-stage workflow-stage--full">
+    <section className={`workflow-stage workflow-stage--full workflow-stage--${canvasMode}`}>
       <ReactFlow
         edges={edges}
         elementsSelectable={false}
-        maxZoom={1.8}
-        minZoom={0.42}
+        maxZoom={MAX_CANVAS_ZOOM}
+        minZoom={MIN_CANVAS_ZOOM}
         nodeTypes={nodeTypes}
         nodes={nodes}
         nodesConnectable={false}
-        nodesDraggable={false}
+        nodesDraggable={canvasMode === "move-nodes"}
+        onNodeDragStop={(_, node) => {
+          onNodeDragStop?.(node)
+        }}
         onNodeClick={(_, node) => {
           onNodeSelect(node.id)
         }}
         onNodesChange={onNodesChange}
         onPaneClick={onPaneClick}
+        panOnDrag={canvasMode === "pan-canvas"}
         proOptions={{ hideAttribution: true }}
         selectNodesOnDrag={false}
       >

@@ -335,6 +335,14 @@ pre {
   transform: translateY(-1px);
 }
 
+.workflow-node--draggable {
+  cursor: grab;
+}
+
+.workflow-node--draggable:active {
+  cursor: grabbing;
+}
+
 .workflow-node.is-selected {
   border-color: rgba(255, 255, 255, 0.72);
   background: rgba(22, 22, 22, 0.98);
@@ -510,6 +518,14 @@ pre {
   background: transparent;
 }
 
+.workflow-stage--pan-canvas .react-flow__pane {
+  cursor: grab;
+}
+
+.workflow-stage--pan-canvas .react-flow__pane:active {
+  cursor: grabbing;
+}
+
 .workflow-edge .react-flow__edge-path {
   stroke-linecap: round;
   transition:
@@ -603,6 +619,31 @@ pre {
 .playback-bar__picker:hover {
   border-color: var(--border-strong);
   background: rgba(255, 255, 255, 0.07);
+}
+
+.playback-bar__mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.playback-bar__mode-button {
+  min-width: 72px;
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+}
+
+.playback-bar__mode-button:hover {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.playback-bar__mode-button.is-active {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
 }
 
 .playback-bar__slider [data-slot="slider-track"],

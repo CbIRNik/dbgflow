@@ -25,6 +25,7 @@ const RUN_ROUTE_PREFIX = "#/pipelines/"
 const DEFAULT_PANEL_WIDTH = 420
 const MIN_PANEL_WIDTH = 320
 const MAX_PANEL_WIDTH = 680
+const DEFAULT_CANVAS_MODE = "pan-canvas"
 
 function readRunRouteId() {
   if (typeof window === "undefined") {
@@ -57,6 +58,9 @@ function App() {
   const [detailsNodeId, setDetailsNodeId] = useState("")
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [detailsPanelWidth, setDetailsPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
+  const [canvasMode, setCanvasMode] = useState(DEFAULT_CANVAS_MODE)
+  const [savedNodePositions, setSavedNodePositions] = useState(null)
+  const [savedNodePositionsPipelineId, setSavedNodePositionsPipelineId] = useState("")
   const chainRuns = useMemo(() => deriveChainRuns(session), [session])
   const isRestoringState = useRef(false)
 
@@ -263,11 +267,24 @@ function App() {
     [],
   )
 
-  const { nodes, edges, onNodesChange } = useGraphLayout({
+  const activeSavedNodePositions = useMemo(() => {
+    if (!selectedRun) {
+      return null
+    }
+
+    if (savedNodePositionsPipelineId === selectedRun.id) {
+      return savedNodePositions
+    }
+
+    return getPipelineState(selectedRun.id).nodePositions ?? null
+  }, [getPipelineState, savedNodePositions, savedNodePositionsPipelineId, selectedRun])
+
+  const { nodes, edges, onNodesChange, setNodes } = useGraphLayout({
     graphModel,
     selectedRun,
     selectedNodeId,
     detailsNodeId: isDetailsOpen ? detailsNodeId : "",
+    canvasMode,
     activePlaybackNodeId,
     activeEdgeIds,
     handoff,
@@ -275,7 +292,54 @@ function App() {
     onRunChain: runChainFromNode,
     onOpenDetails: handleOpenDetails,
     buildNodeData: buildNodeDataCallback,
+    savedNodePositions: activeSavedNodePositions,
   })
+
+  const persistedNodePositions = useMemo(() => {
+    if (!nodes.length) {
+      return null
+    }
+
+    return Object.fromEntries(
+      nodes.map((node) => [
+        node.id,
+        {
+          x: Number(node.position.x.toFixed(2)),
+          y: Number(node.position.y.toFixed(2)),
+        },
+      ]),
+    )
+  }, [nodes])
+
+  const handleNodeDragStop = useCallback((draggedNode) => {
+    const roundedPosition = {
+      x: Number(draggedNode.position.x.toFixed(2)),
+      y: Number(draggedNode.position.y.toFixed(2)),
+    }
+
+    setNodes((currentNodes) => {
+      const nextNodes = currentNodes.map((node) =>
+        node.id === draggedNode.id
+          ? { ...node, position: roundedPosition }
+          : node,
+      )
+
+      setSavedNodePositions(
+        Object.fromEntries(
+          nextNodes.map((node) => [
+            node.id,
+            {
+              x: Number(node.position.x.toFixed(2)),
+              y: Number(node.position.y.toFixed(2)),
+            },
+          ]),
+        ),
+      )
+      setSavedNodePositionsPipelineId(selectedRun?.id ?? "")
+
+      return nextNodes
+    })
+  }, [selectedRun?.id, setNodes])
 
   const fitViewKey = useMemo(() => {
     if (!selectedRun) {
@@ -302,6 +366,9 @@ function App() {
         Math.min(MAX_PANEL_WIDTH, savedState.panelWidth ?? DEFAULT_PANEL_WIDTH),
       ),
     )
+    setCanvasMode(savedState.canvasMode ?? DEFAULT_CANVAS_MODE)
+    setSavedNodePositions(savedState.nodePositions ?? null)
+    setSavedNodePositionsPipelineId(selectedRun.id)
     setPlaybackIndex(savedState.playbackIndex)
     setSpeed(savedState.playbackSpeed)
     setRequestedStartNodeId("")
@@ -318,14 +385,18 @@ function App() {
   // Note: Don't save selectedNodeId - it's transient and driven by activePlaybackNodeId
   // Only save isDetailsOpen, playbackIndex, playbackSpeed which are user preferences
   useEffect(() => {
-    if (!selectedRun || isRestoringState.current) return
+    const nodePositionsToPersist = activeSavedNodePositions ?? persistedNodePositions
+
+    if (!selectedRun || isRestoringState.current || !nodePositionsToPersist) return
     setPipelineState(selectedRun.id, {
       playbackIndex: playbackIndex,
       isDetailsOpen: isDetailsOpen,
       panelWidth: detailsPanelWidth,
       playbackSpeed: playbackSpeed,
+      canvasMode,
+      nodePositions: nodePositionsToPersist,
     })
-  }, [selectedRun?.id, playbackIndex, isDetailsOpen, detailsPanelWidth, playbackSpeed, setPipelineState])
+  }, [selectedRun?.id, playbackIndex, isDetailsOpen, detailsPanelWidth, playbackSpeed, canvasMode, activeSavedNodePositions, persistedNodePositions, setPipelineState])
 
   const handleSelectRun = useCallback(
     (runId) => {
@@ -393,9 +464,11 @@ function App() {
         ) : null}
 
         <WorkflowCanvas
+          canvasMode={canvasMode}
           edges={edges}
           fitViewKey={fitViewKey}
           nodes={nodes}
+          onNodeDragStop={handleNodeDragStop}
           onNodesChange={onNodesChange}
           onNodeSelect={handleOpenDetails}
           onPaneClick={() => {
@@ -407,11 +480,13 @@ function App() {
 
         {sortedEvents.length > 0 ? (
           <PlaybackControls
+            canvasMode={canvasMode}
             currentStepLabel={activeStepLabel}
             hasDetailsPanel={isDetailsOpen && Boolean(detailsNodeId)}
             isPlaying={isPlaying}
             onPause={pause}
             onPlay={play}
+            onCanvasModeChange={setCanvasMode}
             onRunSelect={handleSelectRun}
             onSkipEnd={stepForward}
             onSkipStart={stepBackward}

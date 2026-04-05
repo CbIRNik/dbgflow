@@ -60,13 +60,15 @@ export function useGraphLayout({
   selectedRun,
   selectedNodeId,
   detailsNodeId,
+  canvasMode,
   activePlaybackNodeId,
   activeEdgeIds,
   handoff,
   isPlaying,
   onRunChain,
   onOpenDetails,
-  buildNodeData
+  buildNodeData,
+  savedNodePositions
 }) {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
@@ -89,9 +91,13 @@ export function useGraphLayout({
       return graphModel.session.nodes.map((node) => ({
         id: node.id,
         type: "inspector",
-        draggable: false,
+        draggable: canvasMode === "move-nodes",
         selected: selectedNodeId === node.id,
-        position: currentById.get(node.id)?.position ?? layout.get(node.id) ?? { x: 0, y: 0 },
+        position:
+          currentById.get(node.id)?.position ??
+          savedNodePositions?.[node.id] ??
+          layout.get(node.id) ??
+          { x: 0, y: 0 },
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
         data: {
@@ -106,6 +112,7 @@ export function useGraphLayout({
             onRunChain,
             onOpenDetails
           ),
+          canvasMode,
           handoffState:
             handoff?.from === node.id
               ? "source"
@@ -115,7 +122,7 @@ export function useGraphLayout({
         }
       }));
     });
-  }, [graphModel, selectedRun, selectedNodeId, detailsNodeId, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying, onRunChain, onOpenDetails, buildNodeData]);
+  }, [graphModel, selectedRun, selectedNodeId, detailsNodeId, canvasMode, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying, onRunChain, onOpenDetails, buildNodeData, savedNodePositions]);
 
   const onNodesChange = (changes) => {
     setNodes((currentNodes) => applyNodeChanges(changes, currentNodes));

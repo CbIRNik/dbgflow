@@ -5,7 +5,7 @@ import { persist } from 'zustand/middleware'
 export const usePipelineStore = create(
   persist(
     (set, get) => ({
-      // Map of pipelineId -> { playbackIndex, isDetailsOpen, playbackSpeed, panelWidth }
+      // Map of pipelineId -> { playbackIndex, isDetailsOpen, playbackSpeed, panelWidth, canvasMode, nodePositions }
       // Note: selectedNodeId is NOT persisted - it's transient and driven by activePlaybackNodeId
       pipelineStates: {},
 
@@ -17,6 +17,8 @@ export const usePipelineStore = create(
           isDetailsOpen: false,
           playbackSpeed: 1,
           panelWidth: 420,
+          canvasMode: "pan-canvas",
+          nodePositions: null,
         }
       },
 

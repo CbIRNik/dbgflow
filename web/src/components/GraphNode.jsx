@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Play } from "lucide-react"
 import { Button } from "./ui"
@@ -22,6 +23,7 @@ function formatNodeLabel(node) {
 }
 
 export default function GraphNode({ data, selected }) {
+  const pointerStateRef = useRef(null)
   const node = data.node
   const kind = KIND_CONFIG[node.kind] ?? KIND_CONFIG.function
   const isSelected = data.isSelected || selected
@@ -38,6 +40,8 @@ export default function GraphNode({ data, selected }) {
       : data.handoffState === "target"
         ? "workflow-node--handoff-target"
         : ""
+  const interactionModeClassName =
+    data.canvasMode === "move-nodes" ? "workflow-node--draggable" : ""
   const statusClassName =
     data.executionState === "running"
       ? [
@@ -61,6 +65,7 @@ export default function GraphNode({ data, selected }) {
         executionStateClassName,
         animationClassName,
         handoffClassName,
+        interactionModeClassName,
       ]
         .filter(Boolean)
         .join(" ")}
@@ -69,14 +74,46 @@ export default function GraphNode({ data, selected }) {
           return
         }
 
+        pointerStateRef.current = {
+          moved: false,
+          x: event.clientX,
+          y: event.clientY,
+        }
         event.currentTarget.focus()
-        openNodeDetails()
+        if (data.canvasMode !== "move-nodes") {
+          openNodeDetails()
+        }
+      }}
+      onPointerMove={(event) => {
+        if (!pointerStateRef.current || pointerStateRef.current.moved) {
+          return
+        }
+
+        const deltaX = Math.abs(event.clientX - pointerStateRef.current.x)
+        const deltaY = Math.abs(event.clientY - pointerStateRef.current.y)
+        if (deltaX > 6 || deltaY > 6) {
+          pointerStateRef.current.moved = true
+        }
+      }}
+      onClick={() => {
+        if (data.canvasMode !== "move-nodes") {
+          pointerStateRef.current = null
+          return
+        }
+
+        if (!pointerStateRef.current?.moved) {
+          openNodeDetails()
+        }
+        pointerStateRef.current = null
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault()
           openNodeDetails()
         }
+      }}
+      onPointerCancel={() => {
+        pointerStateRef.current = null
       }}
       role="button"
       style={{ width: data.dimensions.width }}

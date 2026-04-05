@@ -79,11 +79,13 @@ function SpeedDropdown({ onSpeedChange, playbackSpeed }) {
 }
 
 export default function PlaybackControls({
+  canvasMode,
   currentStepLabel,
   hasDetailsPanel,
   isPlaying,
   onPause,
   onPlay,
+  onCanvasModeChange,
   onRunSelect,
   onSkipEnd,
   onSkipStart,
@@ -201,6 +203,31 @@ export default function PlaybackControls({
             onSpeedChange={onSpeedChange}
             playbackSpeed={playbackSpeed}
           />
+
+          <div
+            aria-label="Canvas interaction mode"
+            className="playback-bar__mode-toggle"
+            role="group"
+          >
+            <Button
+              className={`playback-bar__mode-button ${canvasMode === "pan-canvas" ? "is-active" : ""}`}
+              onClick={() => onCanvasModeChange("pan-canvas")}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Pan
+            </Button>
+            <Button
+              className={`playback-bar__mode-button ${canvasMode === "move-nodes" ? "is-active" : ""}`}
+              onClick={() => onCanvasModeChange("move-nodes")}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Nodes
+            </Button>
+          </div>
         </div>
 
         <Slider
