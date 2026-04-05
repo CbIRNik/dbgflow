@@ -22,6 +22,9 @@ import { buildGraphModel, buildNodeData } from "./utils/graphUtils.js"
 import { shortenPreview } from "./utils/formatUtils.js"
 
 const RUN_ROUTE_PREFIX = "#/pipelines/"
+const DEFAULT_PANEL_WIDTH = 420
+const MIN_PANEL_WIDTH = 320
+const MAX_PANEL_WIDTH = 680
 
 function readRunRouteId() {
   if (typeof window === "undefined") {
@@ -51,7 +54,9 @@ function App() {
   const { getPipelineState, setPipelineState } = usePipelineStore()
   const [routeRunId, setRouteRunId] = useState(() => readRunRouteId())
   const [selectedNodeId, setSelectedNodeId] = useState("")
+  const [detailsNodeId, setDetailsNodeId] = useState("")
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [detailsPanelWidth, setDetailsPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
   const chainRuns = useMemo(() => deriveChainRuns(session), [session])
   const isRestoringState = useRef(false)
 
@@ -159,6 +164,7 @@ function App() {
 
   const handleOpenDetails = useCallback((nodeId) => {
     setSelectedNodeId(nodeId)
+    setDetailsNodeId(nodeId)
     setIsDetailsOpen(true)
   }, [])
 
@@ -172,7 +178,10 @@ function App() {
     }
 
     setSelectedNodeId(activePlaybackNodeId)
-  }, [activePlaybackNodeId])
+    if (isDetailsOpen) {
+      setDetailsNodeId(activePlaybackNodeId)
+    }
+  }, [activePlaybackNodeId, isDetailsOpen])
 
   const triggerRun = useCallback(
     async (startNodeId) => {
@@ -285,11 +294,18 @@ function App() {
     // Don't restore selectedNodeId - let it be driven by activePlaybackNodeId
     // Only restore isDetailsOpen when switching pipelines
     setIsDetailsOpen(savedState.isDetailsOpen)
+    setDetailsPanelWidth(
+      Math.max(
+        MIN_PANEL_WIDTH,
+        Math.min(MAX_PANEL_WIDTH, savedState.panelWidth ?? DEFAULT_PANEL_WIDTH),
+      ),
+    )
     setPlaybackIndex(savedState.playbackIndex)
     setSpeed(savedState.playbackSpeed)
     setRequestedStartNodeId("")
-    // Reset selectedNodeId when switching pipelines - will be set by activePlaybackNodeId effect
+    // Reset transient node focus when switching pipelines - active playback can repopulate it.
     setSelectedNodeId("")
+    setDetailsNodeId("")
     // Use setTimeout to ensure state is set before we start saving again
     setTimeout(() => {
       isRestoringState.current = false
@@ -304,9 +320,10 @@ function App() {
     setPipelineState(selectedRun.id, {
       playbackIndex: playbackIndex,
       isDetailsOpen: isDetailsOpen,
+      panelWidth: detailsPanelWidth,
       playbackSpeed: playbackSpeed,
     })
-  }, [selectedRun?.id, playbackIndex, isDetailsOpen, playbackSpeed, setPipelineState])
+  }, [selectedRun?.id, playbackIndex, isDetailsOpen, detailsPanelWidth, playbackSpeed, setPipelineState])
 
   const handleSelectRun = useCallback(
     (runId) => {
@@ -325,13 +342,13 @@ function App() {
   }
 
   const currentNodeData =
-    selectedNodeId && graphModel
+    detailsNodeId && graphModel
       ? buildNodeData(
           graphModel,
           selectedRun,
+          detailsNodeId,
           selectedNodeId,
-          selectedNodeId,
-          isDetailsOpen ? selectedNodeId : "",
+          isDetailsOpen ? detailsNodeId : "",
           activePlaybackNodeId,
           isPlaying,
           (nodeId) => {
@@ -358,13 +375,18 @@ function App() {
 
   return (
     <main
-      className={`screen screen--workflow ${isDetailsOpen && selectedNodeId ? "has-details-panel" : ""}`}
+      className={`screen screen--workflow ${isDetailsOpen && detailsNodeId ? "has-details-panel" : ""}`}
+      style={{ "--sidebar-width": `${detailsPanelWidth}px` }}
     >
       <Fragment key={selectedRun?.id ?? "empty"}>
         {isDetailsOpen && currentNodeData ? (
           <NodeDetailsPanel
             nodeData={currentNodeData}
             onClose={handleCloseDetails}
+            onResize={setDetailsPanelWidth}
+            width={detailsPanelWidth}
+            minWidth={MIN_PANEL_WIDTH}
+            maxWidth={MAX_PANEL_WIDTH}
           />
         ) : null}
 
@@ -374,13 +396,17 @@ function App() {
           nodes={nodes}
           onNodesChange={onNodesChange}
           onNodeSelect={handleOpenDetails}
-          onPaneClick={() => setSelectedNodeId("")}
+          onPaneClick={() => {
+            if (!isDetailsOpen) {
+              setSelectedNodeId("")
+            }
+          }}
         />
 
         {sortedEvents.length > 0 ? (
           <PlaybackControls
             currentStepLabel={activeStepLabel}
-            hasDetailsPanel={isDetailsOpen && Boolean(selectedNodeId)}
+            hasDetailsPanel={isDetailsOpen && Boolean(detailsNodeId)}
             isPlaying={isPlaying}
             onPause={pause}
             onPlay={play}

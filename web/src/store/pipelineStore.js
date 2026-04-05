@@ -5,14 +5,19 @@ import { persist } from 'zustand/middleware'
 export const usePipelineStore = create(
   persist(
     (set, get) => ({
-      // Map of pipelineId -> { playbackIndex, isDetailsOpen, playbackSpeed }
+      // Map of pipelineId -> { playbackIndex, isDetailsOpen, playbackSpeed, panelWidth }
       // Note: selectedNodeId is NOT persisted - it's transient and driven by activePlaybackNodeId
       pipelineStates: {},
 
       // Get state for a specific pipeline
       getPipelineState: (pipelineId) => {
         const states = get().pipelineStates
-        return states[pipelineId] || { playbackIndex: -1, isDetailsOpen: false, playbackSpeed: 1 }
+        return states[pipelineId] || {
+          playbackIndex: -1,
+          isDetailsOpen: false,
+          playbackSpeed: 1,
+          panelWidth: 420,
+        }
       },
 
       // Update state for a specific pipeline

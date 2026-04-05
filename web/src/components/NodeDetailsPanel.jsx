@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronRight, X } from "lucide-react"
 import { Badge, Button, Card, ScrollArea, Separator } from "./ui"
 
@@ -170,8 +170,16 @@ function recordList(items, emptyLabel) {
   })
 }
 
-export default function NodeDetailsPanel({ nodeData, onClose }) {
+export default function NodeDetailsPanel({
+  nodeData,
+  onClose,
+  onResize,
+  width,
+  minWidth,
+  maxWidth,
+}) {
   const [isCodeOpen, setIsCodeOpen] = useState(false)
+  const dragStateRef = useRef(null)
   const kind = KIND_CONFIG[nodeData.node.kind] ?? KIND_CONFIG.function
   const statusClassName =
     nodeData.executionState === "failure"
@@ -182,8 +190,51 @@ export default function NodeDetailsPanel({ nodeData, onClose }) {
           ? "details-panel__badge details-panel__badge--running"
           : "details-panel__badge details-panel__badge--neutral"
 
+  useEffect(() => {
+    const stopResize = () => {
+      dragStateRef.current = null
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+    }
+
+    const handlePointerMove = (event) => {
+      if (!dragStateRef.current) {
+        return
+      }
+
+      const nextWidth = dragStateRef.current.startWidth + event.clientX - dragStateRef.current.startX
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, nextWidth))
+      onResize(clampedWidth)
+    }
+
+    const handlePointerUp = () => {
+      stopResize()
+    }
+
+    window.addEventListener("pointermove", handlePointerMove)
+    window.addEventListener("pointerup", handlePointerUp)
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove)
+      window.removeEventListener("pointerup", handlePointerUp)
+      stopResize()
+    }
+  }, [maxWidth, minWidth, onResize])
+
   return (
-    <aside className="details-panel">
+    <aside className="details-panel" style={{ width }}>
+      <div
+        aria-hidden="true"
+        className="details-panel__resize-handle"
+        onPointerDown={(event) => {
+          dragStateRef.current = {
+            startWidth: width,
+            startX: event.clientX,
+          }
+          document.body.style.cursor = "col-resize"
+          document.body.style.userSelect = "none"
+        }}
+      />
       <Card className="details-panel__shell">
         <div className="details-panel__header">
           <div className="min-w-0">
