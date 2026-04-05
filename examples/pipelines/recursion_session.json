@@ -1,0 +1,3490 @@
+{
+  "title": "Recursion Examples Pipeline",
+  "nodes": [
+    {
+      "id": "recursion::ComputationState",
+      "label": "Computation State",
+      "kind": "type",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 8,
+      "source": "struct ComputationState {\n    algorithm: String,\n    call_depth: usize,\n    max_depth_seen: usize,\n    memo_hits: usize,\n    total_calls: usize,\n}\n"
+    },
+    {
+      "id": "recursion::factorial",
+      "label": "Factorial",
+      "kind": "function",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 71,
+      "source": "fn factorial(n: u64, state: &mut ComputationState) -> u64 {\n    state.enter_call();\n    state.emit_snapshot(&format!(\"computing {}!\", n));\n    let result = if n <= 1 { 1 } else { n * factorial(n - 1, state) };\n    state.emit_snapshot(&format!(\"{}! = {}\", n, result));\n    state.exit_call();\n    result\n}\n"
+    },
+    {
+      "id": "recursion::fibonacci",
+      "label": "Fibonacci",
+      "kind": "function",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 45,
+      "source": "fn fibonacci(\n    n: u64,\n    memo: &mut std::collections::HashMap<u64, u64>,\n    state: &mut ComputationState,\n) -> u64 {\n    state.enter_call();\n    state.emit_snapshot(&format!(\"computing fib({})\", n));\n    let result = if n <= 1 {\n        n\n    } else if let Some(&cached) = memo.get(&n) {\n        state.memo_hits += 1;\n        state.emit_snapshot(&format!(\"memo hit for fib({})\", n));\n        cached\n    } else {\n        let result = fibonacci(n - 1, memo, state) + fibonacci(n - 2, memo, state);\n        memo.insert(n, result);\n        result\n    };\n    state.emit_snapshot(&format!(\"fib({}) = {}\", n, result));\n    state.exit_call();\n    result\n}\n"
+    },
+    {
+      "id": "recursion::partition",
+      "label": "Partition",
+      "kind": "function",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 166,
+      "source": "fn partition(arr: &mut [i32], state: &mut ComputationState) -> usize {\n    let pivot = arr[arr.len() - 1];\n    state.emit_snapshot(&format!(\"pivot = {}\", pivot));\n    let mut i = 0;\n    for j in 0..arr.len() - 1 {\n        if arr[j] <= pivot {\n            arr.swap(i, j);\n            i += 1;\n        }\n    }\n    arr.swap(i, arr.len() - 1);\n    i\n}\n"
+    },
+    {
+      "id": "recursion::quick_sort",
+      "label": "Quick Sort",
+      "kind": "function",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 144,
+      "source": "fn quick_sort(arr: &mut [i32], state: &mut ComputationState) {\n    state.enter_call();\n    state.emit_snapshot(&format!(\"sorting slice of length {}\", arr.len()));\n    if arr.len() <= 1 {\n        state.exit_call();\n        return;\n    }\n    let pivot_idx = partition(arr, state);\n    state.emit_snapshot(&format!(\"partitioned at index {}\", pivot_idx));\n    let (left, right) = arr.split_at_mut(pivot_idx);\n    quick_sort(left, state);\n    if !right.is_empty() {\n        quick_sort(&mut right[1..], state);\n    }\n    state.exit_call();\n}\n"
+    },
+    {
+      "id": "recursion::run_examples",
+      "label": "Run Recursion Examples",
+      "kind": "function",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 186,
+      "source": "fn run_examples() {\n    let mut fib_state = ComputationState::new(\"Fibonacci\");\n    let mut memo = std::collections::HashMap::new();\n    let fib_result = fibonacci(10, &mut memo, &mut fib_state);\n    println!(\n        \"Fibonacci(10) = {} (calls: {}, memo hits: {})\", fib_result, fib_state\n        .total_calls, fib_state.memo_hits\n    );\n    let mut fact_state = ComputationState::new(\"Factorial\");\n    let fact_result = factorial(6, &mut fact_state);\n    println!(\n        \"Factorial(6) = {} (calls: {}, max depth: {})\", fact_result, fact_state\n        .total_calls, fact_state.max_depth_seen\n    );\n    let tree = TreeNode::with_children(\n        10,\n        TreeNode::with_children(5, TreeNode::new(3), TreeNode::new(7)),\n        TreeNode::with_children(15, TreeNode::new(12), TreeNode::new(20)),\n    );\n    let mut tree_state = ComputationState::new(\"Tree Traversal\");\n    let sum = tree_sum(&tree, &mut tree_state);\n    println!(\"Tree sum = {} (nodes visited: {})\", sum, tree_state.total_calls);\n    let mut depth_state = ComputationState::new(\"Tree Depth\");\n    let depth = tree_depth(&tree, &mut depth_state);\n    println!(\"Tree depth = {}\", depth);\n    let mut arr = vec![64, 34, 25, 12, 22, 11, 90];\n    let mut sort_state = ComputationState::new(\"Quick Sort\");\n    println!(\"Before sort: {:?}\", arr);\n    quick_sort(&mut arr, &mut sort_state);\n    println!(\"After sort: {:?} (recursive calls: {})\", arr, sort_state.total_calls);\n}\n"
+    },
+    {
+      "id": "recursion::tree_depth",
+      "label": "Tree Depth",
+      "kind": "function",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 126,
+      "source": "fn tree_depth(node: &TreeNode, state: &mut ComputationState) -> usize {\n    state.enter_call();\n    state.emit_snapshot(&format!(\"measuring depth at node {}\", node.value));\n    let left_depth = node.left.as_ref().map(|n| tree_depth(n, state)).unwrap_or(0);\n    let right_depth = node.right.as_ref().map(|n| tree_depth(n, state)).unwrap_or(0);\n    let depth = 1 + left_depth.max(right_depth);\n    state.emit_snapshot(&format!(\"depth at node {} = {}\", node.value, depth));\n    state.exit_call();\n    depth\n}\n"
+    },
+    {
+      "id": "recursion::tree_sum",
+      "label": "Tree Sum",
+      "kind": "function",
+      "module_path": "recursion",
+      "file": "examples/recursion.rs",
+      "line": 112,
+      "source": "fn tree_sum(node: &TreeNode, state: &mut ComputationState) -> i32 {\n    state.enter_call();\n    state.emit_snapshot(&format!(\"visiting node with value {}\", node.value));\n    let left_sum = node.left.as_ref().map(|n| tree_sum(n, state)).unwrap_or(0);\n    let right_sum = node.right.as_ref().map(|n| tree_sum(n, state)).unwrap_or(0);\n    let total = node.value + left_sum + right_sum;\n    state.emit_snapshot(&format!(\"subtree sum at {} = {}\", node.value, total));\n    state.exit_call();\n    total\n}\n"
+    }
+  ],
+  "edges": [
+    {
+      "from": "recursion::factorial",
+      "to": "recursion::ComputationState",
+      "kind": "data_flow",
+      "label": "6! = 720"
+    },
+    {
+      "from": "recursion::fibonacci",
+      "to": "recursion::ComputationState",
+      "kind": "data_flow",
+      "label": "fib(10) = 55"
+    },
+    {
+      "from": "recursion::partition",
+      "to": "recursion::ComputationState",
+      "kind": "data_flow",
+      "label": "pivot = 25"
+    },
+    {
+      "from": "recursion::quick_sort",
+      "to": "recursion::ComputationState",
+      "kind": "data_flow",
+      "label": "sorting slice of length 0"
+    },
+    {
+      "from": "recursion::quick_sort",
+      "to": "recursion::partition",
+      "kind": "control_flow"
+    },
+    {
+      "from": "recursion::run_examples",
+      "to": "recursion::factorial",
+      "kind": "control_flow"
+    },
+    {
+      "from": "recursion::run_examples",
+      "to": "recursion::fibonacci",
+      "kind": "control_flow"
+    },
+    {
+      "from": "recursion::run_examples",
+      "to": "recursion::quick_sort",
+      "kind": "control_flow"
+    },
+    {
+      "from": "recursion::run_examples",
+      "to": "recursion::tree_depth",
+      "kind": "control_flow"
+    },
+    {
+      "from": "recursion::run_examples",
+      "to": "recursion::tree_sum",
+      "kind": "control_flow"
+    },
+    {
+      "from": "recursion::tree_depth",
+      "to": "recursion::ComputationState",
+      "kind": "data_flow",
+      "label": "depth at node 10 = 3"
+    },
+    {
+      "from": "recursion::tree_sum",
+      "to": "recursion::ComputationState",
+      "kind": "data_flow",
+      "label": "subtree sum at 10 = 72"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "recursion::run_examples",
+      "kind": "function_enter",
+      "title": "enter Run Recursion Examples",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(10)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 1,\n    max_depth_seen: 1,\n    memo_hits: 0,\n    total_calls: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 3,
+      "parent_call_id": 2,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(9)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 2,\n    max_depth_seen: 2,\n    memo_hits: 0,\n    total_calls: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 4,
+      "parent_call_id": 3,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(8)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "call_id": 5,
+      "parent_call_id": 4,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(7)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 4,\n    max_depth_seen: 4,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "call_id": 6,
+      "parent_call_id": 5,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(6)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 5,\n    max_depth_seen: 5,\n    memo_hits: 0,\n    total_calls: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "call_id": 7,
+      "parent_call_id": 6,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(5)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 6,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "call_id": 8,
+      "parent_call_id": 7,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(4)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 7,\n    max_depth_seen: 7,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 16,
+      "call_id": 9,
+      "parent_call_id": 8,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 17,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(3)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 8,\n    max_depth_seen: 8,\n    memo_hits: 0,\n    total_calls: 8,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 18,
+      "call_id": 10,
+      "parent_call_id": 9,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 19,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(2)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 9,\n    max_depth_seen: 9,\n    memo_hits: 0,\n    total_calls: 9,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 20,
+      "call_id": 11,
+      "parent_call_id": 10,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 21,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(1)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 10,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 10,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 22,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(1) = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 10,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 10,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 23,
+      "call_id": 11,
+      "parent_call_id": 10,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 24,
+      "call_id": 12,
+      "parent_call_id": 10,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 25,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(0)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 10,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 26,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(0) = 0",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 10,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 27,
+      "call_id": 12,
+      "parent_call_id": 10,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 28,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(2) = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 9,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "call_id": 10,
+      "parent_call_id": 9,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "call_id": 13,
+      "parent_call_id": 9,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 31,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(1)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 9,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 12,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 32,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(1) = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 9,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 12,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 33,
+      "call_id": 13,
+      "parent_call_id": 9,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 34,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(3) = 2",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 8,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 12,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 35,
+      "call_id": 9,
+      "parent_call_id": 8,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 36,
+      "call_id": 14,
+      "parent_call_id": 8,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 37,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(2)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 8,\n    max_depth_seen: 10,\n    memo_hits: 0,\n    total_calls: 13,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 38,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "memo hit for fib(2)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 8,\n    max_depth_seen: 10,\n    memo_hits: 1,\n    total_calls: 13,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 39,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(2) = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 8,\n    max_depth_seen: 10,\n    memo_hits: 1,\n    total_calls: 13,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 40,
+      "call_id": 14,
+      "parent_call_id": 8,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(4) = 3",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 7,\n    max_depth_seen: 10,\n    memo_hits: 1,\n    total_calls: 13,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 42,
+      "call_id": 8,
+      "parent_call_id": 7,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 43,
+      "call_id": 15,
+      "parent_call_id": 7,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 44,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(3)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 7,\n    max_depth_seen: 10,\n    memo_hits: 1,\n    total_calls: 14,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 45,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "memo hit for fib(3)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 7,\n    max_depth_seen: 10,\n    memo_hits: 2,\n    total_calls: 14,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(3) = 2",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 7,\n    max_depth_seen: 10,\n    memo_hits: 2,\n    total_calls: 14,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 47,
+      "call_id": 15,
+      "parent_call_id": 7,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(5) = 5",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 6,\n    max_depth_seen: 10,\n    memo_hits: 2,\n    total_calls: 14,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 49,
+      "call_id": 7,
+      "parent_call_id": 6,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 50,
+      "call_id": 16,
+      "parent_call_id": 6,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 51,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(4)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 6,\n    max_depth_seen: 10,\n    memo_hits: 2,\n    total_calls: 15,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 52,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "memo hit for fib(4)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 6,\n    max_depth_seen: 10,\n    memo_hits: 3,\n    total_calls: 15,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 53,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(4) = 3",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 6,\n    max_depth_seen: 10,\n    memo_hits: 3,\n    total_calls: 15,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 54,
+      "call_id": 16,
+      "parent_call_id": 6,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 55,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(6) = 8",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 5,\n    max_depth_seen: 10,\n    memo_hits: 3,\n    total_calls: 15,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 56,
+      "call_id": 6,
+      "parent_call_id": 5,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 57,
+      "call_id": 17,
+      "parent_call_id": 5,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 58,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(5)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 5,\n    max_depth_seen: 10,\n    memo_hits: 3,\n    total_calls: 16,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "memo hit for fib(5)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 5,\n    max_depth_seen: 10,\n    memo_hits: 4,\n    total_calls: 16,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 60,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(5) = 5",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 5,\n    max_depth_seen: 10,\n    memo_hits: 4,\n    total_calls: 16,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 61,
+      "call_id": 17,
+      "parent_call_id": 5,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 62,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(7) = 13",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 4,\n    max_depth_seen: 10,\n    memo_hits: 4,\n    total_calls: 16,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 63,
+      "call_id": 5,
+      "parent_call_id": 4,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 64,
+      "call_id": 18,
+      "parent_call_id": 4,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 65,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(6)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 4,\n    max_depth_seen: 10,\n    memo_hits: 4,\n    total_calls: 17,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 66,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "memo hit for fib(6)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 4,\n    max_depth_seen: 10,\n    memo_hits: 5,\n    total_calls: 17,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 67,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(6) = 8",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 4,\n    max_depth_seen: 10,\n    memo_hits: 5,\n    total_calls: 17,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 68,
+      "call_id": 18,
+      "parent_call_id": 4,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 69,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(8) = 21",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 3,\n    max_depth_seen: 10,\n    memo_hits: 5,\n    total_calls: 17,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 70,
+      "call_id": 4,
+      "parent_call_id": 3,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 71,
+      "call_id": 19,
+      "parent_call_id": 3,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 72,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(7)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 3,\n    max_depth_seen: 10,\n    memo_hits: 5,\n    total_calls: 18,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 73,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "memo hit for fib(7)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 3,\n    max_depth_seen: 10,\n    memo_hits: 6,\n    total_calls: 18,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 74,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(7) = 13",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 3,\n    max_depth_seen: 10,\n    memo_hits: 6,\n    total_calls: 18,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 75,
+      "call_id": 19,
+      "parent_call_id": 3,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 76,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(9) = 34",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 2,\n    max_depth_seen: 10,\n    memo_hits: 6,\n    total_calls: 18,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 77,
+      "call_id": 3,
+      "parent_call_id": 2,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 78,
+      "call_id": 20,
+      "parent_call_id": 2,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_enter",
+      "title": "enter Fibonacci",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "memo",
+          "preview": "type &mut std::collections::hash::map::HashMap<u64, u64>"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 79,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing fib(8)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 2,\n    max_depth_seen: 10,\n    memo_hits: 6,\n    total_calls: 19,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 80,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "memo hit for fib(8)",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 2,\n    max_depth_seen: 10,\n    memo_hits: 7,\n    total_calls: 19,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 81,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(8) = 21",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 2,\n    max_depth_seen: 10,\n    memo_hits: 7,\n    total_calls: 19,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 82,
+      "call_id": 20,
+      "parent_call_id": 2,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 83,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "fib(10) = 55",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Fibonacci\",\n    call_depth: 1,\n    max_depth_seen: 10,\n    memo_hits: 7,\n    total_calls: 19,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 84,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "recursion::fibonacci",
+      "kind": "function_exit",
+      "title": "return fibonacci",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 85,
+      "call_id": 21,
+      "parent_call_id": 1,
+      "node_id": "recursion::factorial",
+      "kind": "function_enter",
+      "title": "enter Factorial",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 86,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing 6!",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 1,\n    max_depth_seen: 1,\n    memo_hits: 0,\n    total_calls: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 87,
+      "call_id": 22,
+      "parent_call_id": 21,
+      "node_id": "recursion::factorial",
+      "kind": "function_enter",
+      "title": "enter Factorial",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 88,
+      "call_id": 22,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing 5!",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 2,\n    max_depth_seen: 2,\n    memo_hits: 0,\n    total_calls: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 89,
+      "call_id": 23,
+      "parent_call_id": 22,
+      "node_id": "recursion::factorial",
+      "kind": "function_enter",
+      "title": "enter Factorial",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 90,
+      "call_id": 23,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing 4!",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 91,
+      "call_id": 24,
+      "parent_call_id": 23,
+      "node_id": "recursion::factorial",
+      "kind": "function_enter",
+      "title": "enter Factorial",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 92,
+      "call_id": 24,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing 3!",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 4,\n    max_depth_seen: 4,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 93,
+      "call_id": 25,
+      "parent_call_id": 24,
+      "node_id": "recursion::factorial",
+      "kind": "function_enter",
+      "title": "enter Factorial",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 94,
+      "call_id": 25,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing 2!",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 5,\n    max_depth_seen: 5,\n    memo_hits: 0,\n    total_calls: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 95,
+      "call_id": 26,
+      "parent_call_id": 25,
+      "node_id": "recursion::factorial",
+      "kind": "function_enter",
+      "title": "enter Factorial",
+      "values": [
+        {
+          "name": "n",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 96,
+      "call_id": 26,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "computing 1!",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 6,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 97,
+      "call_id": 26,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "1! = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 6,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 98,
+      "call_id": 26,
+      "parent_call_id": 25,
+      "node_id": "recursion::factorial",
+      "kind": "function_exit",
+      "title": "return factorial",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 99,
+      "call_id": 25,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "2! = 2",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 5,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 100,
+      "call_id": 25,
+      "parent_call_id": 24,
+      "node_id": "recursion::factorial",
+      "kind": "function_exit",
+      "title": "return factorial",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 101,
+      "call_id": 24,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "3! = 6",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 4,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 102,
+      "call_id": 24,
+      "parent_call_id": 23,
+      "node_id": "recursion::factorial",
+      "kind": "function_exit",
+      "title": "return factorial",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 103,
+      "call_id": 23,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "4! = 24",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 3,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 104,
+      "call_id": 23,
+      "parent_call_id": 22,
+      "node_id": "recursion::factorial",
+      "kind": "function_exit",
+      "title": "return factorial",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 105,
+      "call_id": 22,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "5! = 120",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 2,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 106,
+      "call_id": 22,
+      "parent_call_id": 21,
+      "node_id": "recursion::factorial",
+      "kind": "function_exit",
+      "title": "return factorial",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 107,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "6! = 720",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Factorial\",\n    call_depth: 1,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 108,
+      "call_id": 21,
+      "parent_call_id": 1,
+      "node_id": "recursion::factorial",
+      "kind": "function_exit",
+      "title": "return factorial",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 109,
+      "call_id": 27,
+      "parent_call_id": 1,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_enter",
+      "title": "enter Tree Sum",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 110,
+      "call_id": 27,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "visiting node with value 10",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 1,\n    max_depth_seen: 1,\n    memo_hits: 0,\n    total_calls: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 111,
+      "call_id": 28,
+      "parent_call_id": 27,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_enter",
+      "title": "enter Tree Sum",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 112,
+      "call_id": 28,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "visiting node with value 5",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 2,\n    max_depth_seen: 2,\n    memo_hits: 0,\n    total_calls: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 113,
+      "call_id": 29,
+      "parent_call_id": 28,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_enter",
+      "title": "enter Tree Sum",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 114,
+      "call_id": 29,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "visiting node with value 3",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 115,
+      "call_id": 29,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "subtree sum at 3 = 3",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 116,
+      "call_id": 29,
+      "parent_call_id": 28,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_exit",
+      "title": "return tree_sum",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 117,
+      "call_id": 30,
+      "parent_call_id": 28,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_enter",
+      "title": "enter Tree Sum",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 118,
+      "call_id": 30,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "visiting node with value 7",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 119,
+      "call_id": 30,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "subtree sum at 7 = 7",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 120,
+      "call_id": 30,
+      "parent_call_id": 28,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_exit",
+      "title": "return tree_sum",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 121,
+      "call_id": 28,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "subtree sum at 5 = 15",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 2,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 122,
+      "call_id": 28,
+      "parent_call_id": 27,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_exit",
+      "title": "return tree_sum",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 123,
+      "call_id": 31,
+      "parent_call_id": 27,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_enter",
+      "title": "enter Tree Sum",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 124,
+      "call_id": 31,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "visiting node with value 15",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 2,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 125,
+      "call_id": 32,
+      "parent_call_id": 31,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_enter",
+      "title": "enter Tree Sum",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 126,
+      "call_id": 32,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "visiting node with value 12",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 127,
+      "call_id": 32,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "subtree sum at 12 = 12",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 128,
+      "call_id": 32,
+      "parent_call_id": 31,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_exit",
+      "title": "return tree_sum",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 129,
+      "call_id": 33,
+      "parent_call_id": 31,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_enter",
+      "title": "enter Tree Sum",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 130,
+      "call_id": 33,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "visiting node with value 20",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 131,
+      "call_id": 33,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "subtree sum at 20 = 20",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 132,
+      "call_id": 33,
+      "parent_call_id": 31,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_exit",
+      "title": "return tree_sum",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 133,
+      "call_id": 31,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "subtree sum at 15 = 47",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 2,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 134,
+      "call_id": 31,
+      "parent_call_id": 27,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_exit",
+      "title": "return tree_sum",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 135,
+      "call_id": 27,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "subtree sum at 10 = 72",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Traversal\",\n    call_depth: 1,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 136,
+      "call_id": 27,
+      "parent_call_id": 1,
+      "node_id": "recursion::tree_sum",
+      "kind": "function_exit",
+      "title": "return tree_sum",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 137,
+      "call_id": 34,
+      "parent_call_id": 1,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_enter",
+      "title": "enter Tree Depth",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 138,
+      "call_id": 34,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "measuring depth at node 10",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 1,\n    max_depth_seen: 1,\n    memo_hits: 0,\n    total_calls: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 139,
+      "call_id": 35,
+      "parent_call_id": 34,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_enter",
+      "title": "enter Tree Depth",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 140,
+      "call_id": 35,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "measuring depth at node 5",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 2,\n    max_depth_seen: 2,\n    memo_hits: 0,\n    total_calls: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 141,
+      "call_id": 36,
+      "parent_call_id": 35,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_enter",
+      "title": "enter Tree Depth",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 142,
+      "call_id": 36,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "measuring depth at node 3",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 143,
+      "call_id": 36,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "depth at node 3 = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 144,
+      "call_id": 36,
+      "parent_call_id": 35,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_exit",
+      "title": "return tree_depth",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 145,
+      "call_id": 37,
+      "parent_call_id": 35,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_enter",
+      "title": "enter Tree Depth",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 146,
+      "call_id": 37,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "measuring depth at node 7",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 147,
+      "call_id": 37,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "depth at node 7 = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 148,
+      "call_id": 37,
+      "parent_call_id": 35,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_exit",
+      "title": "return tree_depth",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 149,
+      "call_id": 35,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "depth at node 5 = 2",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 2,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 150,
+      "call_id": 35,
+      "parent_call_id": 34,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_exit",
+      "title": "return tree_depth",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 151,
+      "call_id": 38,
+      "parent_call_id": 34,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_enter",
+      "title": "enter Tree Depth",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 152,
+      "call_id": 38,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "measuring depth at node 15",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 2,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 153,
+      "call_id": 39,
+      "parent_call_id": 38,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_enter",
+      "title": "enter Tree Depth",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 154,
+      "call_id": 39,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "measuring depth at node 12",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 155,
+      "call_id": 39,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "depth at node 12 = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 156,
+      "call_id": 39,
+      "parent_call_id": 38,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_exit",
+      "title": "return tree_depth",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 157,
+      "call_id": 40,
+      "parent_call_id": 38,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_enter",
+      "title": "enter Tree Depth",
+      "values": [
+        {
+          "name": "node",
+          "preview": "type &recursion::TreeNode"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 158,
+      "call_id": 40,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "measuring depth at node 20",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 159,
+      "call_id": 40,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "depth at node 20 = 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 160,
+      "call_id": 40,
+      "parent_call_id": 38,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_exit",
+      "title": "return tree_depth",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 161,
+      "call_id": 38,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "depth at node 15 = 2",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 2,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 162,
+      "call_id": 38,
+      "parent_call_id": 34,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_exit",
+      "title": "return tree_depth",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 163,
+      "call_id": 34,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "depth at node 10 = 3",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Tree Depth\",\n    call_depth: 1,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 164,
+      "call_id": 34,
+      "parent_call_id": 1,
+      "node_id": "recursion::tree_depth",
+      "kind": "function_exit",
+      "title": "return tree_depth",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 165,
+      "call_id": 41,
+      "parent_call_id": 1,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 166,
+      "call_id": 41,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 7",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 1,\n    max_depth_seen: 1,\n    memo_hits: 0,\n    total_calls: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 167,
+      "call_id": 42,
+      "parent_call_id": 41,
+      "node_id": "recursion::partition",
+      "kind": "function_enter",
+      "title": "enter Partition",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 168,
+      "call_id": 42,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "pivot = 90",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 1,\n    max_depth_seen: 1,\n    memo_hits: 0,\n    total_calls: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 169,
+      "call_id": 42,
+      "parent_call_id": 41,
+      "node_id": "recursion::partition",
+      "kind": "function_exit",
+      "title": "return partition",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 170,
+      "call_id": 41,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "partitioned at index 6",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 1,\n    max_depth_seen: 1,\n    memo_hits: 0,\n    total_calls: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 171,
+      "call_id": 43,
+      "parent_call_id": 41,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 172,
+      "call_id": 43,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 6",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 2,\n    max_depth_seen: 2,\n    memo_hits: 0,\n    total_calls: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 173,
+      "call_id": 44,
+      "parent_call_id": 43,
+      "node_id": "recursion::partition",
+      "kind": "function_enter",
+      "title": "enter Partition",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 174,
+      "call_id": 44,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "pivot = 11",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 2,\n    max_depth_seen: 2,\n    memo_hits: 0,\n    total_calls: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 175,
+      "call_id": 44,
+      "parent_call_id": 43,
+      "node_id": "recursion::partition",
+      "kind": "function_exit",
+      "title": "return partition",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 176,
+      "call_id": 43,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "partitioned at index 0",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 2,\n    max_depth_seen: 2,\n    memo_hits: 0,\n    total_calls: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 177,
+      "call_id": 45,
+      "parent_call_id": 43,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 178,
+      "call_id": 45,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 0",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 179,
+      "call_id": 45,
+      "parent_call_id": 43,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "panic quick_sort",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 180,
+      "call_id": 46,
+      "parent_call_id": 43,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 181,
+      "call_id": 46,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 5",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 182,
+      "call_id": 47,
+      "parent_call_id": 46,
+      "node_id": "recursion::partition",
+      "kind": "function_enter",
+      "title": "enter Partition",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 183,
+      "call_id": 47,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "pivot = 64",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 184,
+      "call_id": 47,
+      "parent_call_id": 46,
+      "node_id": "recursion::partition",
+      "kind": "function_exit",
+      "title": "return partition",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 185,
+      "call_id": 46,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "partitioned at index 4",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 3,\n    max_depth_seen: 3,\n    memo_hits: 0,\n    total_calls: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 186,
+      "call_id": 48,
+      "parent_call_id": 46,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 187,
+      "call_id": 48,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 4",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 4,\n    max_depth_seen: 4,\n    memo_hits: 0,\n    total_calls: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 188,
+      "call_id": 49,
+      "parent_call_id": 48,
+      "node_id": "recursion::partition",
+      "kind": "function_enter",
+      "title": "enter Partition",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 189,
+      "call_id": 49,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "pivot = 22",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 4,\n    max_depth_seen: 4,\n    memo_hits: 0,\n    total_calls: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 190,
+      "call_id": 49,
+      "parent_call_id": 48,
+      "node_id": "recursion::partition",
+      "kind": "function_exit",
+      "title": "return partition",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 191,
+      "call_id": 48,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "partitioned at index 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 4,\n    max_depth_seen: 4,\n    memo_hits: 0,\n    total_calls: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 192,
+      "call_id": 50,
+      "parent_call_id": 48,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 193,
+      "call_id": 50,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 5,\n    max_depth_seen: 5,\n    memo_hits: 0,\n    total_calls: 6,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 194,
+      "call_id": 50,
+      "parent_call_id": 48,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "panic quick_sort",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 195,
+      "call_id": 51,
+      "parent_call_id": 48,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 196,
+      "call_id": 51,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 2",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 5,\n    max_depth_seen: 5,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 197,
+      "call_id": 52,
+      "parent_call_id": 51,
+      "node_id": "recursion::partition",
+      "kind": "function_enter",
+      "title": "enter Partition",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 198,
+      "call_id": 52,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "pivot = 25",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 5,\n    max_depth_seen: 5,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 199,
+      "call_id": 52,
+      "parent_call_id": 51,
+      "node_id": "recursion::partition",
+      "kind": "function_exit",
+      "title": "return partition",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type usize"
+        }
+      ]
+    },
+    {
+      "seq": 200,
+      "call_id": 51,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "partitioned at index 0",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 5,\n    max_depth_seen: 5,\n    memo_hits: 0,\n    total_calls: 7,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 201,
+      "call_id": 53,
+      "parent_call_id": 51,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 202,
+      "call_id": 53,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 0",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 6,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 8,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 203,
+      "call_id": 53,
+      "parent_call_id": 51,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "panic quick_sort",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 204,
+      "call_id": 54,
+      "parent_call_id": 51,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 205,
+      "call_id": 54,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 1",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 6,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 9,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 206,
+      "call_id": 54,
+      "parent_call_id": 51,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "panic quick_sort",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 207,
+      "call_id": 51,
+      "parent_call_id": 48,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "return quick_sort",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 208,
+      "call_id": 48,
+      "parent_call_id": 46,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "return quick_sort",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 209,
+      "call_id": 55,
+      "parent_call_id": 46,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 210,
+      "call_id": 55,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 0",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 4,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 10,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 211,
+      "call_id": 55,
+      "parent_call_id": 46,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "panic quick_sort",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 212,
+      "call_id": 46,
+      "parent_call_id": 43,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "return quick_sort",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 213,
+      "call_id": 43,
+      "parent_call_id": 41,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "return quick_sort",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 214,
+      "call_id": 56,
+      "parent_call_id": 41,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_enter",
+      "title": "enter Quick Sort",
+      "values": [
+        {
+          "name": "arr",
+          "preview": "type &mut [i32]"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut recursion::ComputationState"
+        }
+      ]
+    },
+    {
+      "seq": 215,
+      "call_id": 56,
+      "parent_call_id": null,
+      "node_id": "recursion::ComputationState",
+      "kind": "value_snapshot",
+      "title": "sorting slice of length 0",
+      "values": [
+        {
+          "name": "Computation State",
+          "preview": "ComputationState {\n    algorithm: \"Quick Sort\",\n    call_depth: 2,\n    max_depth_seen: 6,\n    memo_hits: 0,\n    total_calls: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 216,
+      "call_id": 56,
+      "parent_call_id": 41,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "panic quick_sort",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 217,
+      "call_id": 41,
+      "parent_call_id": 1,
+      "node_id": "recursion::quick_sort",
+      "kind": "function_exit",
+      "title": "return quick_sort",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 218,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "recursion::run_examples",
+      "kind": "function_exit",
+      "title": "return run_examples",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    }
+  ]
+}

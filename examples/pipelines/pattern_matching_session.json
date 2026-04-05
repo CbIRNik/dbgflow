@@ -1,0 +1,2085 @@
+{
+  "title": "Pattern Matching Pipeline",
+  "nodes": [
+    {
+      "id": "pattern_matching::GeometryState",
+      "label": "Geometry State",
+      "kind": "type",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 184,
+      "source": "struct GeometryState {\n    points_processed: usize,\n    in_bounds_count: usize,\n    quadrant_counts: [usize; 4],\n}\n"
+    },
+    {
+      "id": "pattern_matching::IteratorState",
+      "label": "Iterator State",
+      "kind": "type",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 266,
+      "source": "struct IteratorState {\n    items: Vec<i32>,\n    current: Option<i32>,\n    iterations: usize,\n}\n"
+    },
+    {
+      "id": "pattern_matching::NestedState",
+      "label": "Nested State",
+      "kind": "type",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 309,
+      "source": "struct NestedState {\n    patterns_matched: Vec<String>,\n    total_values: i32,\n}\n"
+    },
+    {
+      "id": "pattern_matching::OptionalChain",
+      "label": "Optional Chain",
+      "kind": "type",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 235,
+      "source": "struct OptionalChain {\n    values: Vec<Option<i32>>,\n    current_index: usize,\n    sum: i32,\n    some_count: usize,\n    none_count: usize,\n}\n"
+    },
+    {
+      "id": "pattern_matching::ProcessingState",
+      "label": "Processing State",
+      "kind": "type",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 22,
+      "source": "struct ProcessingState {\n    messages_processed: usize,\n    text_count: usize,\n    media_count: usize,\n    other_count: usize,\n    total_media_kb: u32,\n}\n"
+    },
+    {
+      "id": "pattern_matching::TransformState",
+      "label": "Transform State",
+      "kind": "type",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 103,
+      "source": "struct TransformState {\n    position: (i32, i32),\n    scale: f64,\n    rotation: f64,\n    color: (u8, u8, u8),\n    commands_applied: usize,\n    commands_rejected: usize,\n}\n"
+    },
+    {
+      "id": "pattern_matching::apply_command",
+      "label": "Apply Command",
+      "kind": "function",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 113,
+      "source": "fn apply_command(cmd: &Command, state: &mut TransformState) -> bool {\n    state.emit_snapshot(&format!(\"applying command #{}\", state.commands_applied + 1));\n    let applied = match cmd {\n        Command::Move { x, y } if *x >= -100 && *x <= 100 && *y >= -100 && *y <= 100 => {\n            state.position = (*x, *y);\n            state.emit_snapshot(&format!(\"moved to ({}, {})\", x, y));\n            true\n        }\n        Command::Move { x, y } => {\n            state\n                .emit_snapshot(\n                    &format!(\"rejected move to ({}, {}) - out of bounds\", x, y),\n                );\n            false\n        }\n        Command::Scale { factor } if *factor > 0.0 && *factor <= 10.0 => {\n            state.scale *= factor;\n            state.emit_snapshot(&format!(\"scaled by {}, now {}\", factor, state.scale));\n            true\n        }\n        Command::Scale { factor } => {\n            state.emit_snapshot(&format!(\"rejected scale {} - invalid factor\", factor));\n            false\n        }\n        Command::Rotate { degrees } if *degrees >= -360.0 && *degrees <= 360.0 => {\n            state.rotation = (state.rotation + degrees) % 360.0;\n            if state.rotation < 0.0 {\n                state.rotation += 360.0;\n            }\n            state\n                .emit_snapshot(\n                    &format!(\"rotated by {}, now {}\", degrees, state.rotation),\n                );\n            true\n        }\n        Command::Rotate { degrees } => {\n            state.emit_snapshot(&format!(\"rejected rotation {} - too extreme\", degrees));\n            false\n        }\n        Command::SetColor { r, g, b } => {\n            state.color = (*r, *g, *b);\n            state.emit_snapshot(&format!(\"color set to rgb({}, {}, {})\", r, g, b));\n            true\n        }\n    };\n    if applied {\n        state.commands_applied += 1;\n    } else {\n        state.commands_rejected += 1;\n    }\n    applied\n}\n"
+    },
+    {
+      "id": "pattern_matching::classify_point",
+      "label": "Classify Point",
+      "kind": "function",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 191,
+      "source": "fn classify_point(point: &Point, state: &mut GeometryState) -> String {\n    state.points_processed += 1;\n    state\n        .emit_snapshot(\n            &format!(\"classifying point ({}, {}, {})\", point.x, point.y, point.z),\n        );\n    let Point { x, y, z: _ } = point;\n    let classification = match (*x >= 0.0, *y >= 0.0) {\n        (true, true) => {\n            state.quadrant_counts[0] += 1;\n            state.emit_snapshot(\"quadrant I (x+, y+)\");\n            \"Quadrant I\"\n        }\n        (false, true) => {\n            state.quadrant_counts[1] += 1;\n            state.emit_snapshot(\"quadrant II (x-, y+)\");\n            \"Quadrant II\"\n        }\n        (false, false) => {\n            state.quadrant_counts[2] += 1;\n            state.emit_snapshot(\"quadrant III (x-, y-)\");\n            \"Quadrant III\"\n        }\n        (true, false) => {\n            state.quadrant_counts[3] += 1;\n            state.emit_snapshot(\"quadrant IV (x+, y-)\");\n            \"Quadrant IV\"\n        }\n    };\n    if point.x.abs() <= 10.0 && point.y.abs() <= 10.0 {\n        state.in_bounds_count += 1;\n        state.emit_snapshot(\"point is within bounds\");\n    }\n    classification.to_owned()\n}\n"
+    },
+    {
+      "id": "pattern_matching::match_nested",
+      "label": "Match Nested",
+      "kind": "function",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 315,
+      "source": "fn match_nested(data: &NestedData, state: &mut NestedState) -> String {\n    state.emit_snapshot(\"matching nested pattern\");\n    let result = match data {\n        NestedData::Empty => {\n            state.patterns_matched.push(\"Empty\".to_owned());\n            state.emit_snapshot(\"matched Empty\");\n            \"empty\".to_owned()\n        }\n        NestedData::Single(n) => {\n            state.patterns_matched.push(format!(\"Single({})\", n));\n            state.total_values += n;\n            state.emit_snapshot(&format!(\"matched Single({})\", n));\n            format!(\"single: {}\", n)\n        }\n        NestedData::Pair(a, b) => {\n            state.patterns_matched.push(format!(\"Pair({}, {})\", a, b));\n            state.total_values += a + b;\n            state.emit_snapshot(&format!(\"matched Pair({}, {})\", a, b));\n            format!(\"pair: {} + {} = {}\", a, b, a + b)\n        }\n        NestedData::Triple(a, b, c) => {\n            state.patterns_matched.push(format!(\"Triple({}, {}, {})\", a, b, c));\n            state.total_values += a + b + c;\n            state.emit_snapshot(&format!(\"matched Triple({}, {}, {})\", a, b, c));\n            format!(\"triple: {} + {} + {} = {}\", a, b, c, a + b + c)\n        }\n        NestedData::List(items) if items.is_empty() => {\n            state.patterns_matched.push(\"List([])\".to_owned());\n            state.emit_snapshot(\"matched empty List\");\n            \"empty list\".to_owned()\n        }\n        NestedData::List(items) if items.len() == 1 => {\n            let first = items[0];\n            state.patterns_matched.push(format!(\"List([{}])\", first));\n            state.total_values += first;\n            state.emit_snapshot(&format!(\"matched singleton List([{}])\", first));\n            format!(\"singleton list: [{}]\", first)\n        }\n        NestedData::List(items) => {\n            let sum: i32 = items.iter().sum();\n            state.patterns_matched.push(format!(\"List({} items)\", items.len()));\n            state.total_values += sum;\n            state\n                .emit_snapshot(\n                    &format!(\"matched List with {} items, sum = {}\", items.len(), sum),\n                );\n            format!(\"list of {}: sum = {}\", items.len(), sum)\n        }\n        NestedData::Named { key, value } => {\n            state.patterns_matched.push(format!(\"Named({}: {})\", key, value));\n            state.total_values += value;\n            state.emit_snapshot(&format!(\"matched Named {{ {}: {} }}\", key, value));\n            format!(\"named: {} = {}\", key, value)\n        }\n    };\n    state.emit_snapshot(&format!(\"result: {}\", result));\n    result\n}\n"
+    },
+    {
+      "id": "pattern_matching::process_message",
+      "label": "Process Message",
+      "kind": "function",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 43,
+      "source": "fn process_message(msg: &Message, state: &mut ProcessingState) -> String {\n    state.messages_processed += 1;\n    state.emit_snapshot(&format!(\"processing message #{}\", state.messages_processed));\n    let result = match msg {\n        Message::Text { from, content } => {\n            state.text_count += 1;\n            state.emit_snapshot(&format!(\"text from {}: '{}'\", from, content));\n            format!(\"[TEXT] {}: {}\", from, content)\n        }\n        Message::Image { from, url, size_kb } => {\n            state.media_count += 1;\n            state.total_media_kb += size_kb;\n            state.emit_snapshot(&format!(\"image from {} ({}KB)\", from, size_kb));\n            format!(\"[IMAGE] {}: {} ({}KB)\", from, url, size_kb)\n        }\n        Message::Video { from, url, duration_secs } => {\n            state.media_count += 1;\n            state.emit_snapshot(&format!(\"video from {} ({}s)\", from, duration_secs));\n            format!(\"[VIDEO] {}: {} ({}s)\", from, url, duration_secs)\n        }\n        Message::Voice { from, duration_secs } => {\n            state.media_count += 1;\n            state.emit_snapshot(&format!(\"voice from {} ({}s)\", from, duration_secs));\n            format!(\"[VOICE] {}: {}s\", from, duration_secs)\n        }\n        Message::Location { from, lat, lon } => {\n            state.other_count += 1;\n            state.emit_snapshot(&format!(\"location from {}: ({}, {})\", from, lat, lon));\n            format!(\"[LOCATION] {}: ({}, {})\", from, lat, lon)\n        }\n        Message::Reaction { from, emoji, target_id } => {\n            state.other_count += 1;\n            state\n                .emit_snapshot(\n                    &format!(\"reaction from {}: {} on #{}\", from, emoji, target_id),\n                );\n            format!(\"[REACTION] {}: {} on #{}\", from, emoji, target_id)\n        }\n    };\n    state.emit_snapshot(&format!(\"processed: {}\", result));\n    result\n}\n"
+    },
+    {
+      "id": "pattern_matching::process_with_while_let",
+      "label": "Process With While Let",
+      "kind": "function",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 273,
+      "source": "fn process_with_while_let(state: &mut IteratorState) -> Vec<i32> {\n    state\n        .emit_snapshot(\n            &format!(\"processing {} items with while let\", state.items.len()),\n        );\n    let mut results = Vec::new();\n    let mut iter = state.items.iter();\n    while let Some(&value) = iter.next() {\n        state.current = Some(value);\n        state.iterations += 1;\n        let processed = value * 2;\n        results.push(processed);\n        state\n            .emit_snapshot(\n                &format!(\"iteration {}: {} -> {}\", state.iterations, value, processed),\n            );\n    }\n    state.current = None;\n    state.emit_snapshot(&format!(\"completed {} iterations\", state.iterations));\n    results\n}\n"
+    },
+    {
+      "id": "pattern_matching::run_examples",
+      "label": "Run Pattern Matching Examples",
+      "kind": "function",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 385,
+      "source": "fn run_examples() {\n    println!(\"--- Message Processing ---\");\n    let messages = vec![\n        Message::Text { from : \"Alice\".to_owned(), content : \"Hello!\".to_owned() },\n        Message::Image { from : \"Bob\".to_owned(), url : \"img.jpg\".to_owned(), size_kb :\n        256 }, Message::Video { from : \"Charlie\".to_owned(), url : \"vid.mp4\".to_owned(),\n        duration_secs : 30 }, Message::Location { from : \"Diana\".to_owned(), lat :\n        37.7749, lon : - 122.4194 }, Message::Reaction { from : \"Eve\".to_owned(), emoji :\n        \"👍\".to_owned(), target_id : 1 },\n    ];\n    let mut proc_state = ProcessingState::new();\n    for msg in &messages {\n        let result = process_message(msg, &mut proc_state);\n        println!(\"{}\", result);\n    }\n    println!(\n        \"Stats: {} text, {} media, {} other\", proc_state.text_count, proc_state\n        .media_count, proc_state.other_count\n    );\n    println!(\"\\n--- Commands with Guards ---\");\n    let commands = vec![\n        Command::Move { x : 50, y : 50 }, Command::Move { x : 200, y : 200 },\n        Command::Scale { factor : 2.0 }, Command::Scale { factor : - 1.0 },\n        Command::Rotate { degrees : 45.0 }, Command::SetColor { r : 255, g : 128, b : 64\n        },\n    ];\n    let mut transform_state = TransformState {\n        position: (0, 0),\n        scale: 1.0,\n        rotation: 0.0,\n        color: (0, 0, 0),\n        commands_applied: 0,\n        commands_rejected: 0,\n    };\n    for cmd in &commands {\n        let applied = apply_command(cmd, &mut transform_state);\n        println!(\"Command applied: {}\", applied);\n    }\n    println!(\n        \"Final: pos={:?}, scale={}, rotation={}, color={:?}\", transform_state.position,\n        transform_state.scale, transform_state.rotation, transform_state.color\n    );\n    println!(\"\\n--- Point Classification ---\");\n    let points = vec![\n        Point { x : 5.0, y : 5.0, z : 0.0 }, Point { x : - 3.0, y : 7.0, z : 1.0 }, Point\n        { x : - 8.0, y : - 4.0, z : 2.0 }, Point { x : 15.0, y : - 2.0, z : 3.0 },\n    ];\n    let mut geo_state = GeometryState {\n        points_processed: 0,\n        in_bounds_count: 0,\n        quadrant_counts: [0; 4],\n    };\n    for point in &points {\n        let quadrant = classify_point(point, &mut geo_state);\n        println!(\"({}, {}) -> {}\", point.x, point.y, quadrant);\n    }\n    println!(\"Quadrant counts: {:?}\", geo_state.quadrant_counts);\n    println!(\"\\n--- Optional Chain ---\");\n    let mut chain = OptionalChain {\n        values: vec![Some(10), None, Some(20), Some(30), None, Some(40)],\n        current_index: 0,\n        sum: 0,\n        some_count: 0,\n        none_count: 0,\n    };\n    let total = sum_optional_values(&mut chain);\n    println!(\"Total: {}\", total);\n    println!(\"\\n--- While Let ---\");\n    let mut iter_state = IteratorState {\n        items: vec![1, 2, 3, 4, 5],\n        current: None,\n        iterations: 0,\n    };\n    let doubled = process_with_while_let(&mut iter_state);\n    println!(\"Doubled: {:?}\", doubled);\n    println!(\"\\n--- Nested Patterns ---\");\n    let nested_data = vec![\n        NestedData::Empty, NestedData::Single(42), NestedData::Pair(10, 20),\n        NestedData::Triple(1, 2, 3), NestedData::List(vec![]),\n        NestedData::List(vec![100]), NestedData::List(vec![1, 2, 3, 4, 5]),\n        NestedData::Named { key : \"answer\".to_owned(), value : 42 },\n    ];\n    let mut nested_state = NestedState {\n        patterns_matched: Vec::new(),\n        total_values: 0,\n    };\n    for data in &nested_data {\n        let result = match_nested(data, &mut nested_state);\n        println!(\"{}\", result);\n    }\n    println!(\"Total values: {}\", nested_state.total_values);\n    println!(\"Patterns matched: {:?}\", nested_state.patterns_matched);\n}\n"
+    },
+    {
+      "id": "pattern_matching::sum_optional_values",
+      "label": "Sum Optional Values",
+      "kind": "function",
+      "module_path": "pattern_matching",
+      "file": "examples/pattern_matching.rs",
+      "line": 244,
+      "source": "fn sum_optional_values(chain: &mut OptionalChain) -> i32 {\n    chain.emit_snapshot(&format!(\"processing {} optional values\", chain.values.len()));\n    for (idx, opt) in chain.values.iter().enumerate() {\n        chain.current_index = idx;\n        if let Some(value) = opt {\n            chain.sum += value;\n            chain.some_count += 1;\n            chain\n                .emit_snapshot(\n                    &format!(\"[{}] Some({}) -> sum = {}\", idx, value, chain.sum),\n                );\n        } else {\n            chain.none_count += 1;\n            chain.emit_snapshot(&format!(\"[{}] None (skipped)\", idx));\n        }\n    }\n    chain\n        .emit_snapshot(\n            &format!(\n                \"final sum: {}, {} Some, {} None\", chain.sum, chain.some_count, chain\n                .none_count\n            ),\n        );\n    chain.sum\n}\n"
+    }
+  ],
+  "edges": [
+    {
+      "from": "pattern_matching::apply_command",
+      "to": "pattern_matching::TransformState",
+      "kind": "data_flow",
+      "label": "color set to rgb(255, 128, 64)"
+    },
+    {
+      "from": "pattern_matching::classify_point",
+      "to": "pattern_matching::GeometryState",
+      "kind": "data_flow",
+      "label": "quadrant IV (x+, y-)"
+    },
+    {
+      "from": "pattern_matching::match_nested",
+      "to": "pattern_matching::NestedState",
+      "kind": "data_flow",
+      "label": "result: named: answer = 42"
+    },
+    {
+      "from": "pattern_matching::process_message",
+      "to": "pattern_matching::ProcessingState",
+      "kind": "data_flow",
+      "label": "processed: [REACTION] Eve: 👍 on #1"
+    },
+    {
+      "from": "pattern_matching::process_with_while_let",
+      "to": "pattern_matching::IteratorState",
+      "kind": "data_flow",
+      "label": "completed 5 iterations"
+    },
+    {
+      "from": "pattern_matching::run_examples",
+      "to": "pattern_matching::apply_command",
+      "kind": "control_flow"
+    },
+    {
+      "from": "pattern_matching::run_examples",
+      "to": "pattern_matching::classify_point",
+      "kind": "control_flow"
+    },
+    {
+      "from": "pattern_matching::run_examples",
+      "to": "pattern_matching::match_nested",
+      "kind": "control_flow"
+    },
+    {
+      "from": "pattern_matching::run_examples",
+      "to": "pattern_matching::process_message",
+      "kind": "control_flow"
+    },
+    {
+      "from": "pattern_matching::run_examples",
+      "to": "pattern_matching::process_with_while_let",
+      "kind": "control_flow"
+    },
+    {
+      "from": "pattern_matching::run_examples",
+      "to": "pattern_matching::sum_optional_values",
+      "kind": "control_flow"
+    },
+    {
+      "from": "pattern_matching::sum_optional_values",
+      "to": "pattern_matching::OptionalChain",
+      "kind": "data_flow",
+      "label": "final sum: 100, 4 Some, 2 None"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::run_examples",
+      "kind": "function_enter",
+      "title": "enter Run Pattern Matching Examples",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_enter",
+      "title": "enter Process Message",
+      "values": [
+        {
+          "name": "msg",
+          "preview": "type &pattern_matching::Message"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::ProcessingState"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processing message #1",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 1,\n    text_count: 0,\n    media_count: 0,\n    other_count: 0,\n    total_media_kb: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "text from Alice: 'Hello!'",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 1,\n    text_count: 1,\n    media_count: 0,\n    other_count: 0,\n    total_media_kb: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processed: [TEXT] Alice: Hello!",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 1,\n    text_count: 1,\n    media_count: 0,\n    other_count: 0,\n    total_media_kb: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_exit",
+      "title": "return process_message",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_enter",
+      "title": "enter Process Message",
+      "values": [
+        {
+          "name": "msg",
+          "preview": "type &pattern_matching::Message"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::ProcessingState"
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processing message #2",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 2,\n    text_count: 1,\n    media_count: 0,\n    other_count: 0,\n    total_media_kb: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "image from Bob (256KB)",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 2,\n    text_count: 1,\n    media_count: 1,\n    other_count: 0,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processed: [IMAGE] Bob: img.jpg (256KB)",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 2,\n    text_count: 1,\n    media_count: 1,\n    other_count: 0,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_exit",
+      "title": "return process_message",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_enter",
+      "title": "enter Process Message",
+      "values": [
+        {
+          "name": "msg",
+          "preview": "type &pattern_matching::Message"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::ProcessingState"
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processing message #3",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 3,\n    text_count: 1,\n    media_count: 1,\n    other_count: 0,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "video from Charlie (30s)",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 3,\n    text_count: 1,\n    media_count: 2,\n    other_count: 0,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processed: [VIDEO] Charlie: vid.mp4 (30s)",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 3,\n    text_count: 1,\n    media_count: 2,\n    other_count: 0,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 16,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_exit",
+      "title": "return process_message",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 17,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_enter",
+      "title": "enter Process Message",
+      "values": [
+        {
+          "name": "msg",
+          "preview": "type &pattern_matching::Message"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::ProcessingState"
+        }
+      ]
+    },
+    {
+      "seq": 18,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processing message #4",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 4,\n    text_count: 1,\n    media_count: 2,\n    other_count: 0,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 19,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "location from Diana: (37.7749, -122.4194)",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 4,\n    text_count: 1,\n    media_count: 2,\n    other_count: 1,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 20,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processed: [LOCATION] Diana: (37.7749, -122.4194)",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 4,\n    text_count: 1,\n    media_count: 2,\n    other_count: 1,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 21,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_exit",
+      "title": "return process_message",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 22,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_enter",
+      "title": "enter Process Message",
+      "values": [
+        {
+          "name": "msg",
+          "preview": "type &pattern_matching::Message"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::ProcessingState"
+        }
+      ]
+    },
+    {
+      "seq": 23,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processing message #5",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 5,\n    text_count: 1,\n    media_count: 2,\n    other_count: 1,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 24,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "reaction from Eve: 👍 on #1",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 5,\n    text_count: 1,\n    media_count: 2,\n    other_count: 2,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 25,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::ProcessingState",
+      "kind": "value_snapshot",
+      "title": "processed: [REACTION] Eve: 👍 on #1",
+      "values": [
+        {
+          "name": "Processing State",
+          "preview": "ProcessingState {\n    messages_processed: 5,\n    text_count: 1,\n    media_count: 2,\n    other_count: 2,\n    total_media_kb: 256,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 26,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_message",
+      "kind": "function_exit",
+      "title": "return process_message",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 27,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_enter",
+      "title": "enter Apply Command",
+      "values": [
+        {
+          "name": "cmd",
+          "preview": "type &pattern_matching::Command"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::TransformState"
+        }
+      ]
+    },
+    {
+      "seq": 28,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "applying command #1",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        0,\n        0,\n    ),\n    scale: 1.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 0,\n    commands_rejected: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "moved to (50, 50)",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 1.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 0,\n    commands_rejected: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_exit",
+      "title": "return apply_command",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 31,
+      "call_id": 8,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_enter",
+      "title": "enter Apply Command",
+      "values": [
+        {
+          "name": "cmd",
+          "preview": "type &pattern_matching::Command"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::TransformState"
+        }
+      ]
+    },
+    {
+      "seq": 32,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "applying command #2",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 1.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 1,\n    commands_rejected: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 33,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "rejected move to (200, 200) - out of bounds",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 1.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 1,\n    commands_rejected: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 34,
+      "call_id": 8,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_exit",
+      "title": "return apply_command",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 35,
+      "call_id": 9,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_enter",
+      "title": "enter Apply Command",
+      "values": [
+        {
+          "name": "cmd",
+          "preview": "type &pattern_matching::Command"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::TransformState"
+        }
+      ]
+    },
+    {
+      "seq": 36,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "applying command #2",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 1.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 1,\n    commands_rejected: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 37,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "scaled by 2, now 2",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 2.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 1,\n    commands_rejected: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 38,
+      "call_id": 9,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_exit",
+      "title": "return apply_command",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 39,
+      "call_id": 10,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_enter",
+      "title": "enter Apply Command",
+      "values": [
+        {
+          "name": "cmd",
+          "preview": "type &pattern_matching::Command"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::TransformState"
+        }
+      ]
+    },
+    {
+      "seq": 40,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "applying command #3",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 2.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 2,\n    commands_rejected: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "rejected scale -1 - invalid factor",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 2.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 2,\n    commands_rejected: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 42,
+      "call_id": 10,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_exit",
+      "title": "return apply_command",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 43,
+      "call_id": 11,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_enter",
+      "title": "enter Apply Command",
+      "values": [
+        {
+          "name": "cmd",
+          "preview": "type &pattern_matching::Command"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::TransformState"
+        }
+      ]
+    },
+    {
+      "seq": 44,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "applying command #3",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 2.0,\n    rotation: 0.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 2,\n    commands_rejected: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 45,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "rotated by 45, now 45",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 2.0,\n    rotation: 45.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 2,\n    commands_rejected: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "call_id": 11,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_exit",
+      "title": "return apply_command",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 47,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_enter",
+      "title": "enter Apply Command",
+      "values": [
+        {
+          "name": "cmd",
+          "preview": "type &pattern_matching::Command"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::TransformState"
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "applying command #4",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 2.0,\n    rotation: 45.0,\n    color: (\n        0,\n        0,\n        0,\n    ),\n    commands_applied: 3,\n    commands_rejected: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 49,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::TransformState",
+      "kind": "value_snapshot",
+      "title": "color set to rgb(255, 128, 64)",
+      "values": [
+        {
+          "name": "Transform State",
+          "preview": "TransformState {\n    position: (\n        50,\n        50,\n    ),\n    scale: 2.0,\n    rotation: 45.0,\n    color: (\n        255,\n        128,\n        64,\n    ),\n    commands_applied: 3,\n    commands_rejected: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 50,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::apply_command",
+      "kind": "function_exit",
+      "title": "return apply_command",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 51,
+      "call_id": 13,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_enter",
+      "title": "enter Classify Point",
+      "values": [
+        {
+          "name": "point",
+          "preview": "type &pattern_matching::Point"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::GeometryState"
+        }
+      ]
+    },
+    {
+      "seq": 52,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "classifying point (5, 5, 0)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 1,\n    in_bounds_count: 0,\n    quadrant_counts: [\n        0,\n        0,\n        0,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 53,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "quadrant I (x+, y+)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 1,\n    in_bounds_count: 0,\n    quadrant_counts: [\n        1,\n        0,\n        0,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 54,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "point is within bounds",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 1,\n    in_bounds_count: 1,\n    quadrant_counts: [\n        1,\n        0,\n        0,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 55,
+      "call_id": 13,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_exit",
+      "title": "return classify_point",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 56,
+      "call_id": 14,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_enter",
+      "title": "enter Classify Point",
+      "values": [
+        {
+          "name": "point",
+          "preview": "type &pattern_matching::Point"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::GeometryState"
+        }
+      ]
+    },
+    {
+      "seq": 57,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "classifying point (-3, 7, 1)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 2,\n    in_bounds_count: 1,\n    quadrant_counts: [\n        1,\n        0,\n        0,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 58,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "quadrant II (x-, y+)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 2,\n    in_bounds_count: 1,\n    quadrant_counts: [\n        1,\n        1,\n        0,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "point is within bounds",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 2,\n    in_bounds_count: 2,\n    quadrant_counts: [\n        1,\n        1,\n        0,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 60,
+      "call_id": 14,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_exit",
+      "title": "return classify_point",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 61,
+      "call_id": 15,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_enter",
+      "title": "enter Classify Point",
+      "values": [
+        {
+          "name": "point",
+          "preview": "type &pattern_matching::Point"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::GeometryState"
+        }
+      ]
+    },
+    {
+      "seq": 62,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "classifying point (-8, -4, 2)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 3,\n    in_bounds_count: 2,\n    quadrant_counts: [\n        1,\n        1,\n        0,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 63,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "quadrant III (x-, y-)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 3,\n    in_bounds_count: 2,\n    quadrant_counts: [\n        1,\n        1,\n        1,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 64,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "point is within bounds",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 3,\n    in_bounds_count: 3,\n    quadrant_counts: [\n        1,\n        1,\n        1,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 65,
+      "call_id": 15,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_exit",
+      "title": "return classify_point",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 66,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_enter",
+      "title": "enter Classify Point",
+      "values": [
+        {
+          "name": "point",
+          "preview": "type &pattern_matching::Point"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::GeometryState"
+        }
+      ]
+    },
+    {
+      "seq": 67,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "classifying point (15, -2, 3)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 4,\n    in_bounds_count: 3,\n    quadrant_counts: [\n        1,\n        1,\n        1,\n        0,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 68,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::GeometryState",
+      "kind": "value_snapshot",
+      "title": "quadrant IV (x+, y-)",
+      "values": [
+        {
+          "name": "Geometry State",
+          "preview": "GeometryState {\n    points_processed: 4,\n    in_bounds_count: 3,\n    quadrant_counts: [\n        1,\n        1,\n        1,\n        1,\n    ],\n}"
+        }
+      ]
+    },
+    {
+      "seq": 69,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::classify_point",
+      "kind": "function_exit",
+      "title": "return classify_point",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 70,
+      "call_id": 17,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::sum_optional_values",
+      "kind": "function_enter",
+      "title": "enter Sum Optional Values",
+      "values": [
+        {
+          "name": "chain",
+          "preview": "type &mut pattern_matching::OptionalChain"
+        }
+      ]
+    },
+    {
+      "seq": 71,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "processing 6 optional values",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 0,\n    sum: 0,\n    some_count: 0,\n    none_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 72,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "[0] Some(10) -> sum = 10",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 0,\n    sum: 10,\n    some_count: 1,\n    none_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 73,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "[1] None (skipped)",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 1,\n    sum: 10,\n    some_count: 1,\n    none_count: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 74,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "[2] Some(20) -> sum = 30",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 2,\n    sum: 30,\n    some_count: 2,\n    none_count: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 75,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "[3] Some(30) -> sum = 60",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 3,\n    sum: 60,\n    some_count: 3,\n    none_count: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 76,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "[4] None (skipped)",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 4,\n    sum: 60,\n    some_count: 3,\n    none_count: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 77,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "[5] Some(40) -> sum = 100",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 5,\n    sum: 100,\n    some_count: 4,\n    none_count: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 78,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::OptionalChain",
+      "kind": "value_snapshot",
+      "title": "final sum: 100, 4 Some, 2 None",
+      "values": [
+        {
+          "name": "Optional Chain",
+          "preview": "OptionalChain {\n    values: [\n        Some(\n            10,\n        ),\n        None,\n        Some(\n            20,\n        ),\n        Some(\n            30,\n        ),\n        None,\n        Some(\n            40,\n        ),\n    ],\n    current_index: 5,\n    sum: 100,\n    some_count: 4,\n    none_count: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 79,
+      "call_id": 17,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::sum_optional_values",
+      "kind": "function_exit",
+      "title": "return sum_optional_values",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type i32"
+        }
+      ]
+    },
+    {
+      "seq": 80,
+      "call_id": 18,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_with_while_let",
+      "kind": "function_enter",
+      "title": "enter Process With While Let",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::IteratorState"
+        }
+      ]
+    },
+    {
+      "seq": 81,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::IteratorState",
+      "kind": "value_snapshot",
+      "title": "processing 5 items with while let",
+      "values": [
+        {
+          "name": "Iterator State",
+          "preview": "IteratorState {\n    items: [\n        1,\n        2,\n        3,\n        4,\n        5,\n    ],\n    current: None,\n    iterations: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 82,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::IteratorState",
+      "kind": "value_snapshot",
+      "title": "iteration 1: 1 -> 2",
+      "values": [
+        {
+          "name": "Iterator State",
+          "preview": "IteratorState {\n    items: [\n        1,\n        2,\n        3,\n        4,\n        5,\n    ],\n    current: Some(\n        1,\n    ),\n    iterations: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 83,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::IteratorState",
+      "kind": "value_snapshot",
+      "title": "iteration 2: 2 -> 4",
+      "values": [
+        {
+          "name": "Iterator State",
+          "preview": "IteratorState {\n    items: [\n        1,\n        2,\n        3,\n        4,\n        5,\n    ],\n    current: Some(\n        2,\n    ),\n    iterations: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 84,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::IteratorState",
+      "kind": "value_snapshot",
+      "title": "iteration 3: 3 -> 6",
+      "values": [
+        {
+          "name": "Iterator State",
+          "preview": "IteratorState {\n    items: [\n        1,\n        2,\n        3,\n        4,\n        5,\n    ],\n    current: Some(\n        3,\n    ),\n    iterations: 3,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 85,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::IteratorState",
+      "kind": "value_snapshot",
+      "title": "iteration 4: 4 -> 8",
+      "values": [
+        {
+          "name": "Iterator State",
+          "preview": "IteratorState {\n    items: [\n        1,\n        2,\n        3,\n        4,\n        5,\n    ],\n    current: Some(\n        4,\n    ),\n    iterations: 4,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 86,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::IteratorState",
+      "kind": "value_snapshot",
+      "title": "iteration 5: 5 -> 10",
+      "values": [
+        {
+          "name": "Iterator State",
+          "preview": "IteratorState {\n    items: [\n        1,\n        2,\n        3,\n        4,\n        5,\n    ],\n    current: Some(\n        5,\n    ),\n    iterations: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 87,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::IteratorState",
+      "kind": "value_snapshot",
+      "title": "completed 5 iterations",
+      "values": [
+        {
+          "name": "Iterator State",
+          "preview": "IteratorState {\n    items: [\n        1,\n        2,\n        3,\n        4,\n        5,\n    ],\n    current: None,\n    iterations: 5,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 88,
+      "call_id": 18,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::process_with_while_let",
+      "kind": "function_exit",
+      "title": "return process_with_while_let",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::vec::Vec<i32>"
+        }
+      ]
+    },
+    {
+      "seq": 89,
+      "call_id": 19,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 90,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [],\n    total_values: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 91,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched Empty",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n    ],\n    total_values: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 92,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: empty",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n    ],\n    total_values: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 93,
+      "call_id": 19,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 94,
+      "call_id": 20,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 95,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n    ],\n    total_values: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 96,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched Single(42)",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n    ],\n    total_values: 42,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 97,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: single: 42",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n    ],\n    total_values: 42,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 98,
+      "call_id": 20,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 99,
+      "call_id": 21,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 100,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n    ],\n    total_values: 42,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 101,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched Pair(10, 20)",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n    ],\n    total_values: 72,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 102,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: pair: 10 + 20 = 30",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n    ],\n    total_values: 72,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 103,
+      "call_id": 21,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 104,
+      "call_id": 22,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 105,
+      "call_id": 22,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n    ],\n    total_values: 72,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 106,
+      "call_id": 22,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched Triple(1, 2, 3)",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n    ],\n    total_values: 78,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 107,
+      "call_id": 22,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: triple: 1 + 2 + 3 = 6",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n    ],\n    total_values: 78,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 108,
+      "call_id": 22,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 109,
+      "call_id": 23,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 110,
+      "call_id": 23,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n    ],\n    total_values: 78,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 111,
+      "call_id": 23,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched empty List",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n    ],\n    total_values: 78,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 112,
+      "call_id": 23,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: empty list",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n    ],\n    total_values: 78,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 113,
+      "call_id": 23,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 114,
+      "call_id": 24,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 115,
+      "call_id": 24,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n    ],\n    total_values: 78,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 116,
+      "call_id": 24,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched singleton List([100])",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n    ],\n    total_values: 178,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 117,
+      "call_id": 24,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: singleton list: [100]",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n    ],\n    total_values: 178,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 118,
+      "call_id": 24,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 119,
+      "call_id": 25,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 120,
+      "call_id": 25,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n    ],\n    total_values: 178,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 121,
+      "call_id": 25,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched List with 5 items, sum = 15",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n        \"List(5 items)\",\n    ],\n    total_values: 193,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 122,
+      "call_id": 25,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: list of 5: sum = 15",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n        \"List(5 items)\",\n    ],\n    total_values: 193,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 123,
+      "call_id": 25,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 124,
+      "call_id": 26,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_enter",
+      "title": "enter Match Nested",
+      "values": [
+        {
+          "name": "data",
+          "preview": "type &pattern_matching::NestedData"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut pattern_matching::NestedState"
+        }
+      ]
+    },
+    {
+      "seq": 125,
+      "call_id": 26,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matching nested pattern",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n        \"List(5 items)\",\n    ],\n    total_values: 193,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 126,
+      "call_id": 26,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "matched Named { answer: 42 }",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n        \"List(5 items)\",\n        \"Named(answer: 42)\",\n    ],\n    total_values: 235,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 127,
+      "call_id": 26,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::NestedState",
+      "kind": "value_snapshot",
+      "title": "result: named: answer = 42",
+      "values": [
+        {
+          "name": "Nested State",
+          "preview": "NestedState {\n    patterns_matched: [\n        \"Empty\",\n        \"Single(42)\",\n        \"Pair(10, 20)\",\n        \"Triple(1, 2, 3)\",\n        \"List([])\",\n        \"List([100])\",\n        \"List(5 items)\",\n        \"Named(answer: 42)\",\n    ],\n    total_values: 235,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 128,
+      "call_id": 26,
+      "parent_call_id": 1,
+      "node_id": "pattern_matching::match_nested",
+      "kind": "function_exit",
+      "title": "return match_nested",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::string::String"
+        }
+      ]
+    },
+    {
+      "seq": 129,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "pattern_matching::run_examples",
+      "kind": "function_exit",
+      "title": "return run_examples",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    }
+  ]
+}

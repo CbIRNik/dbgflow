@@ -1,0 +1,37 @@
+[package]
+name = "dbg-pipelines"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dbgflow = { path = "../../crates/dbg-cli" }
+
+[workspace]
+
+[[example]]
+name = "network_request"
+path = "examples/network_request.rs"
+
+[[example]]
+name = "recursion"
+path = "examples/recursion.rs"
+
+[[example]]
+name = "loops"
+path = "examples/loops.rs"
+
+[[example]]
+name = "struct_operations"
+path = "examples/struct_operations.rs"
+
+[[example]]
+name = "error_handling"
+path = "examples/error_handling.rs"
+
+[[example]]
+name = "collections"
+path = "examples/collections.rs"
+
+[[example]]
+name = "pattern_matching"
+path = "examples/pattern_matching.rs"

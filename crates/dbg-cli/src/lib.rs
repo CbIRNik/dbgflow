@@ -6,6 +6,7 @@
 
 extern crate self as dbgflow;
 
+use std::fs;
 use std::path::Path;
 
 /// Re-exported runtime and session types from `dbgflow-core`.
@@ -65,6 +66,101 @@ pub fn serve_current_session(host: &str, port: u16) -> std::io::Result<()> {
     serve_session(current_session(), host, port)
 }
 
+/// Reads a saved session file, or aggregates all JSON sessions in a directory.
+pub fn load_saved_session(path: impl AsRef<Path>) -> std::io::Result<Session> {
+    let path = path.as_ref();
+    if path.is_dir() {
+        load_saved_session_dir(path)
+    } else {
+        read_session_json(path)
+    }
+}
+
+fn load_saved_session_dir(dir: &Path) -> std::io::Result<Session> {
+    let mut session_paths = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+            session_paths.push(path);
+        }
+    }
+
+    session_paths.sort();
+
+    if session_paths.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("no session JSON files found in {}", dir.display()),
+        ));
+    }
+
+    if session_paths.len() == 1 {
+        return read_session_json(&session_paths[0]);
+    }
+
+    let title = dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| format!("{name} ({} sessions)", session_paths.len()))
+        .unwrap_or_else(|| format!("dbgflow session bundle ({})", session_paths.len()));
+
+    let mut merged = Session::new(title);
+    let mut next_seq = 1_u64;
+    let mut next_call_id = 1_u64;
+
+    for (index, session_path) in session_paths.iter().enumerate() {
+        let session = read_session_json(session_path)?;
+        let prefix = format!(
+            "bundle:{}:{}::",
+            index + 1,
+            session_file_slug(session_path, &session)
+        );
+        let seq_offset = next_seq.saturating_sub(1);
+        let call_id_offset = next_call_id.saturating_sub(1);
+
+        let max_call_id = session.events.iter().filter_map(|event| event.call_id).max();
+
+        merged.nodes.extend(session.nodes.into_iter().map(|mut node| {
+            node.id = format!("{prefix}{}", node.id);
+            node
+        }));
+
+        merged.edges.extend(session.edges.into_iter().map(|mut edge| {
+            edge.from = format!("{prefix}{}", edge.from);
+            edge.to = format!("{prefix}{}", edge.to);
+            edge
+        }));
+
+        merged.events.extend(session.events.into_iter().map(|mut event| {
+            event.seq += seq_offset;
+            event.call_id = event.call_id.map(|call_id| call_id + call_id_offset);
+            event.parent_call_id = event
+                .parent_call_id
+                .map(|call_id| call_id + call_id_offset);
+            event.node_id = format!("{prefix}{}", event.node_id);
+            event
+        }));
+
+        next_seq = merged.events.last().map(|event| event.seq + 1).unwrap_or(next_seq);
+        next_call_id = max_call_id.map(|call_id| call_id + call_id_offset + 1).unwrap_or(next_call_id);
+    }
+
+    Ok(merged)
+}
+
+fn session_file_slug(path: &Path, session: &Session) -> String {
+    path.file_stem()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or(&session.title)
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' => ch.to_ascii_lowercase(),
+            _ => '-',
+        })
+        .collect()
+}
+
 /// Persists the current session if the `DBG_SESSION_DIR` environment variable is set.
 ///
 /// This is primarily used by `#[dbg_test]` and `dbgflow test`.
@@ -90,7 +186,7 @@ pub mod demo {
     use std::path::Path;
 
     use super::{
-        UiDebugValue, current_session, read_session_json, reset_session, runtime, serve_session,
+        UiDebugValue, current_session, load_saved_session, reset_session, runtime, serve_session,
         trace, ui_debug, write_session_json,
     };
 
@@ -258,14 +354,16 @@ pub mod demo {
 
     /// Serves a previously saved session JSON file.
     pub fn serve_saved(path: impl AsRef<Path>, port: u16) -> std::io::Result<()> {
-        let session = read_session_json(path)?;
+        let session = load_saved_session(path)?;
         serve_session(session, "127.0.0.1", port)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{EventKind, current_session, demo};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{EventKind, current_session, demo, load_saved_session};
 
     #[test]
     fn demo_populates_graph_and_test_failure() {
@@ -305,5 +403,143 @@ mod tests {
                 .iter()
                 .any(|event| matches!(event.kind, EventKind::TestPassed))
         );
+    }
+
+    #[test]
+    fn load_saved_session_merges_directory_sessions_into_multiple_runs() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "dbgflow-session-merge-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&temp_root).expect("temp dir should be created");
+
+        let first_path = temp_root.join("alpha_session.json");
+        let second_path = temp_root.join("beta_session.json");
+
+        let first_json = r#"{
+  "title": "Alpha Pipeline",
+  "nodes": [
+    {
+      "id": "alpha::run",
+      "label": "Run Alpha",
+      "kind": "function",
+      "module_path": "alpha",
+      "file": "examples/alpha.rs",
+      "line": 1,
+      "source": "fn run_alpha() {}"
+    }
+  ],
+  "edges": [],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "alpha::run",
+      "kind": "function_enter",
+      "title": "enter Run Alpha",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "alpha::run",
+      "kind": "function_exit",
+      "title": "return run_alpha",
+      "values": []
+    }
+  ]
+}"#;
+        let second_json = r#"{
+  "title": "Beta Pipeline",
+  "nodes": [
+    {
+      "id": "beta::run",
+      "label": "Run Beta",
+      "kind": "function",
+      "module_path": "beta",
+      "file": "examples/beta.rs",
+      "line": 1,
+      "source": "fn run_beta() {}"
+    },
+    {
+      "id": "beta::test",
+      "label": "renders beta",
+      "kind": "test",
+      "module_path": "beta",
+      "file": "examples/beta.rs",
+      "line": 2,
+      "source": null
+    }
+  ],
+  "edges": [
+    {
+      "from": "beta::test",
+      "to": "beta::run",
+      "kind": "test_link",
+      "label": null
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "beta::run",
+      "kind": "function_enter",
+      "title": "enter Run Beta",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": null,
+      "parent_call_id": null,
+      "node_id": "beta::test",
+      "kind": "test_started",
+      "title": "test beta",
+      "values": []
+    },
+    {
+      "seq": 3,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "beta::run",
+      "kind": "function_exit",
+      "title": "return run_beta",
+      "values": []
+    }
+  ]
+}"#;
+
+        std::fs::write(&first_path, first_json).expect("first session should be written");
+        std::fs::write(&second_path, second_json).expect("second session should be written");
+
+        let merged = load_saved_session(&temp_root).expect("directory sessions should merge");
+
+        assert_eq!(merged.nodes.len(), 3);
+        assert_eq!(merged.edges.len(), 1);
+        assert_eq!(merged.events.len(), 5);
+        assert_eq!(
+            merged.events.iter().map(|event| event.seq).collect::<Vec<_>>(),
+            vec![1, 2, 3, 4, 5]
+        );
+        assert_eq!(
+            merged
+                .events
+                .iter()
+                .filter_map(|event| event.call_id)
+                .collect::<Vec<_>>(),
+            vec![1, 1, 2, 2]
+        );
+        assert!(merged
+            .nodes
+            .iter()
+            .all(|node| node.id.starts_with("bundle:")));
+
+        std::fs::remove_dir_all(temp_root).expect("temp dir should be removed");
     }
 }

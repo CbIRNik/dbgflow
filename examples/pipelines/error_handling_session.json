@@ -1,0 +1,1647 @@
+{
+  "title": "Error Handling Pipeline",
+  "nodes": [
+    {
+      "id": "error_handling::OperationState",
+      "label": "Operation State",
+      "kind": "type",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 48,
+      "source": "struct OperationState {\n    operation_name: String,\n    attempts: usize,\n    errors_encountered: Vec<String>,\n    recovered: bool,\n    final_status: OperationStatus,\n}\n"
+    },
+    {
+      "id": "error_handling::check_permission",
+      "label": "Check Permission",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 188,
+      "source": "fn check_permission(\n    user: &str,\n    action: &str,\n    state: &mut OperationState,\n) -> Result<(), AppError> {\n    state.attempts += 1;\n    state.emit_snapshot(&format!(\"checking if '{}' can '{}'\", user, action));\n    let allowed_actions = [\"read\", \"write\", \"comment\"];\n    if allowed_actions.contains(&action) {\n        state.emit_snapshot(\"permission granted\");\n        Ok(())\n    } else {\n        let error = AppError::PermissionDenied {\n            action: action.to_owned(),\n            user: user.to_owned(),\n        };\n        state.record_error(&error.to_string());\n        state.emit_snapshot(\"permission denied\");\n        Err(error)\n    }\n}\n"
+    },
+    {
+      "id": "error_handling::create_comment",
+      "label": "Create Comment",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 228,
+      "source": "fn create_comment(\n    db: &mut MockDatabase,\n    user_id: u64,\n    post_id: u64,\n    comment: &str,\n    state: &mut OperationState,\n) -> Result<String, AppError> {\n    state.emit_snapshot(\"creating comment\");\n    let username = find_user(db, user_id, state)?;\n    check_permission(&username, \"comment\", state)?;\n    let _ = find_post(db, post_id, state)?;\n    let validated = validate_input(comment, state)?;\n    state.final_status = OperationStatus::Success;\n    let result = format!(\"{} commented: '{}'\", username, validated);\n    state.emit_snapshot(&result);\n    Ok(result)\n}\n"
+    },
+    {
+      "id": "error_handling::fetch_with_retry",
+      "label": "Fetch With Retry",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 330,
+      "source": "fn fetch_with_retry(\n    url: &str,\n    max_retries: u32,\n    state: &mut OperationState,\n) -> Result<String, AppError> {\n    state.emit_snapshot(&format!(\"fetching {} with {} retries\", url, max_retries));\n    for attempt in 1..=max_retries {\n        state.attempts = attempt as usize;\n        state.emit_snapshot(&format!(\"attempt {}/{}\", attempt, max_retries));\n        if attempt < max_retries {\n            let error = AppError::NetworkError {\n                url: url.to_owned(),\n                status: Some(503),\n            };\n            state.record_error(&error.to_string());\n            state.emit_snapshot(\"request failed, will retry\");\n            continue;\n        }\n        state.recovered = true;\n        state.final_status = OperationStatus::Success;\n        state.emit_snapshot(\"request succeeded after retries\");\n        return Ok(format!(\"Response from {}\", url));\n    }\n    state.final_status = OperationStatus::Failed;\n    Err(AppError::NetworkError {\n        url: url.to_owned(),\n        status: None,\n    })\n}\n"
+    },
+    {
+      "id": "error_handling::find_post",
+      "label": "Find Post",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 136,
+      "source": "fn find_post(\n    db: &mut MockDatabase,\n    post_id: u64,\n    state: &mut OperationState,\n) -> Result<(u64, String), AppError> {\n    db.query_count += 1;\n    state.attempts += 1;\n    state.emit_snapshot(&format!(\"looking up post {}\", post_id));\n    match db.posts.get(&post_id) {\n        Some(post) => {\n            state.emit_snapshot(&format!(\"found post: '{}'\", post.1));\n            Ok(post.clone())\n        }\n        None => {\n            let error = AppError::NotFound {\n                resource: \"Post\".to_owned(),\n                id: post_id.to_string(),\n            };\n            state.record_error(&error.to_string());\n            state.emit_snapshot(\"post not found\");\n            Err(error)\n        }\n    }\n}\n"
+    },
+    {
+      "id": "error_handling::find_user",
+      "label": "Find User",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 112,
+      "source": "fn find_user(\n    db: &mut MockDatabase,\n    user_id: u64,\n    state: &mut OperationState,\n) -> Result<String, AppError> {\n    db.query_count += 1;\n    state.attempts += 1;\n    state.final_status = OperationStatus::InProgress;\n    state.emit_snapshot(&format!(\"looking up user {}\", user_id));\n    match db.users.get(&user_id) {\n        Some(username) => {\n            state.emit_snapshot(&format!(\"found user: {}\", username));\n            Ok(username.clone())\n        }\n        None => {\n            let error = AppError::NotFound {\n                resource: \"User\".to_owned(),\n                id: user_id.to_string(),\n            };\n            state.record_error(&error.to_string());\n            state.emit_snapshot(\"user not found\");\n            Err(error)\n        }\n    }\n}\n"
+    },
+    {
+      "id": "error_handling::get_api_key",
+      "label": "Get API Key",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 298,
+      "source": "fn get_api_key(config: &Config, state: &mut OperationState) -> Result<String, AppError> {\n    state.emit_snapshot(\"getting API key\");\n    config\n        .api_key\n        .clone()\n        .ok_or_else(|| {\n            let error = AppError::ValidationFailed {\n                field: \"api_key\".to_owned(),\n                message: \"not configured\".to_owned(),\n            };\n            state.record_error(&error.to_string());\n            state.emit_snapshot(\"API key not found\");\n            error\n        })\n}\n"
+    },
+    {
+      "id": "error_handling::get_database_url",
+      "label": "Get Database URL",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 283,
+      "source": "fn get_database_url(\n    config: &Config,\n    state: &mut OperationState,\n) -> Result<String, AppError> {\n    state.emit_snapshot(\"getting database URL\");\n    config\n        .database_url\n        .clone()\n        .ok_or_else(|| {\n            let error = AppError::ValidationFailed {\n                field: \"database_url\".to_owned(),\n                message: \"not configured\".to_owned(),\n            };\n            state.record_error(&error.to_string());\n            state.emit_snapshot(\"database URL not found\");\n            error\n        })\n}\n"
+    },
+    {
+      "id": "error_handling::get_post_with_author",
+      "label": "Get Post With Author",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 212,
+      "source": "fn get_post_with_author(\n    db: &mut MockDatabase,\n    post_id: u64,\n    state: &mut OperationState,\n) -> Result<(String, String), AppError> {\n    state.emit_snapshot(\"fetching post with author info\");\n    let (author_id, content) = find_post(db, post_id, state)?;\n    let author_name = find_user(db, author_id, state)?;\n    state.final_status = OperationStatus::Success;\n    state.emit_snapshot(&format!(\"got post by {}: '{}'\", author_name, content));\n    Ok((author_name, content))\n}\n"
+    },
+    {
+      "id": "error_handling::get_timeout_or_default",
+      "label": "Get Timeout",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 313,
+      "source": "fn get_timeout_or_default(config: &Config, state: &mut OperationState) -> u64 {\n    state.emit_snapshot(\"getting timeout\");\n    let timeout = config\n        .timeout_secs\n        .unwrap_or_else(|| {\n            state.emit_snapshot(\"using default timeout\");\n            60\n        });\n    state.emit_snapshot(&format!(\"timeout: {}s\", timeout));\n    timeout\n}\n"
+    },
+    {
+      "id": "error_handling::load_config",
+      "label": "Load Config",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 268,
+      "source": "fn load_config(state: &mut OperationState) -> Config {\n    state.emit_snapshot(\"loading configuration\");\n    let config = Config {\n        database_url: Some(\"postgres://localhost/app\".to_owned()),\n        api_key: None,\n        timeout_secs: Some(30),\n        retry_count: None,\n    };\n    state.emit_snapshot(\"config loaded\");\n    config\n}\n"
+    },
+    {
+      "id": "error_handling::run_examples",
+      "label": "Run Error Handling Examples",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 396,
+      "source": "fn run_examples() {\n    let mut db = MockDatabase::new();\n    println!(\"--- Example 1: Successful lookup ---\");\n    let mut state1 = OperationState::new(\"user_lookup\");\n    match find_user(&mut db, 1, &mut state1) {\n        Ok(user) => println!(\"Found user: {}\", user),\n        Err(e) => println!(\"Error: {}\", e),\n    }\n    println!(\"\\n--- Example 2: Not found error ---\");\n    let mut state2 = OperationState::new(\"missing_user\");\n    match find_user(&mut db, 999, &mut state2) {\n        Ok(user) => println!(\"Found user: {}\", user),\n        Err(e) => println!(\"Error: {}\", e),\n    }\n    println!(\"\\n--- Example 3: Error propagation ---\");\n    let mut state3 = OperationState::new(\"post_with_author\");\n    match get_post_with_author(&mut db, 100, &mut state3) {\n        Ok((author, content)) => println!(\"Post by {}: '{}'\", author, content),\n        Err(e) => println!(\"Error: {}\", e),\n    }\n    println!(\"\\n--- Example 4: Comment creation ---\");\n    let mut state4 = OperationState::new(\"create_comment\");\n    match create_comment(&mut db, 1, 100, \"Great post!\", &mut state4) {\n        Ok(result) => println!(\"Success: {}\", result),\n        Err(e) => println!(\"Error: {}\", e),\n    }\n    println!(\"\\n--- Example 5: Comment on missing post ---\");\n    let mut state5 = OperationState::new(\"comment_missing_post\");\n    match create_comment(&mut db, 1, 999, \"Comment\", &mut state5) {\n        Ok(result) => println!(\"Success: {}\", result),\n        Err(e) => println!(\"Error: {}\", e),\n    }\n    println!(\"\\n--- Example 6: Config options ---\");\n    let mut state6 = OperationState::new(\"config\");\n    let config = load_config(&mut state6);\n    match get_database_url(&config, &mut state6) {\n        Ok(url) => println!(\"DB URL: {}\", url),\n        Err(e) => println!(\"Error: {}\", e),\n    }\n    match get_api_key(&config, &mut state6) {\n        Ok(key) => println!(\"API Key: {}\", key),\n        Err(e) => println!(\"Error: {} (expected)\", e),\n    }\n    let timeout = get_timeout_or_default(&config, &mut state6);\n    println!(\"Timeout: {}s\", timeout);\n    println!(\"\\n--- Example 7: Retry pattern ---\");\n    let mut state7 = OperationState::new(\"fetch_with_retry\");\n    match fetch_with_retry(\"https://api.example.com/data\", 3, &mut state7) {\n        Ok(response) => println!(\"Got: {}\", response),\n        Err(e) => println!(\"Error: {}\", e),\n    }\n    println!(\"Recovered: {}, Errors: {:?}\", state7.recovered, state7.errors_encountered);\n    println!(\"\\n--- Example 8: Fallback strategy ---\");\n    let mut state8 = OperationState::new(\"fallback\");\n    let result = with_fallback(\n        |s| {\n            s.emit_snapshot(\"primary: checking cache\");\n            Err(AppError::NotFound {\n                resource: \"cache\".to_owned(),\n                id: \"key123\".to_owned(),\n            })\n        },\n        |s| {\n            s.emit_snapshot(\"fallback: querying database\");\n            Ok(\"fallback_value\".to_owned())\n        },\n        &mut state8,\n    );\n    println!(\"Fallback result: {:?}\", result);\n    println!(\"\\nTotal database queries: {}\", db.query_count);\n}\n"
+    },
+    {
+      "id": "error_handling::validate_input",
+      "label": "Validate Input",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 159,
+      "source": "fn validate_input(input: &str, state: &mut OperationState) -> Result<String, AppError> {\n    state.attempts += 1;\n    state.emit_snapshot(&format!(\"validating input: '{}'\", input));\n    if input.is_empty() {\n        let error = AppError::ValidationFailed {\n            field: \"input\".to_owned(),\n            message: \"cannot be empty\".to_owned(),\n        };\n        state.record_error(&error.to_string());\n        state.emit_snapshot(\"validation failed: empty input\");\n        return Err(error);\n    }\n    if input.len() > 100 {\n        let error = AppError::ValidationFailed {\n            field: \"input\".to_owned(),\n            message: \"exceeds maximum length of 100\".to_owned(),\n        };\n        state.record_error(&error.to_string());\n        state.emit_snapshot(\"validation failed: too long\");\n        return Err(error);\n    }\n    state.emit_snapshot(\"validation passed\");\n    Ok(input.trim().to_owned())\n}\n"
+    },
+    {
+      "id": "error_handling::with_fallback",
+      "label": "Fallback Strategy",
+      "kind": "function",
+      "module_path": "error_handling",
+      "file": "examples/error_handling.rs",
+      "line": 367,
+      "source": "fn with_fallback<T, F1, F2>(\n    primary: F1,\n    fallback: F2,\n    state: &mut OperationState,\n) -> Result<T, AppError>\nwhere\n    F1: FnOnce(&mut OperationState) -> Result<T, AppError>,\n    F2: FnOnce(&mut OperationState) -> Result<T, AppError>,\n{\n    state.emit_snapshot(\"trying primary strategy\");\n    match primary(state) {\n        Ok(result) => {\n            state.emit_snapshot(\"primary succeeded\");\n            Ok(result)\n        }\n        Err(e) => {\n            state.record_error(&e.to_string());\n            state.emit_snapshot(\"primary failed, trying fallback\");\n            fallback(state)\n        }\n    }\n}\n"
+    }
+  ],
+  "edges": [
+    {
+      "from": "error_handling::check_permission",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "permission granted"
+    },
+    {
+      "from": "error_handling::create_comment",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "creating comment"
+    },
+    {
+      "from": "error_handling::create_comment",
+      "to": "error_handling::check_permission",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::create_comment",
+      "to": "error_handling::find_post",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::create_comment",
+      "to": "error_handling::find_user",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::create_comment",
+      "to": "error_handling::validate_input",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::fetch_with_retry",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "request succeeded after retries"
+    },
+    {
+      "from": "error_handling::find_post",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "post not found"
+    },
+    {
+      "from": "error_handling::find_user",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "found user: alice"
+    },
+    {
+      "from": "error_handling::get_api_key",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "API key not found"
+    },
+    {
+      "from": "error_handling::get_database_url",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "getting database URL"
+    },
+    {
+      "from": "error_handling::get_post_with_author",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "got post by alice: 'Hello World'"
+    },
+    {
+      "from": "error_handling::get_post_with_author",
+      "to": "error_handling::find_post",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::get_post_with_author",
+      "to": "error_handling::find_user",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::get_timeout_or_default",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "timeout: 30s"
+    },
+    {
+      "from": "error_handling::load_config",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "config loaded"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::create_comment",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::fetch_with_retry",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::find_user",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::get_api_key",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::get_database_url",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::get_post_with_author",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::get_timeout_or_default",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::load_config",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::run_examples",
+      "to": "error_handling::with_fallback",
+      "kind": "control_flow"
+    },
+    {
+      "from": "error_handling::validate_input",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "validation passed"
+    },
+    {
+      "from": "error_handling::with_fallback",
+      "to": "error_handling::OperationState",
+      "kind": "data_flow",
+      "label": "fallback: querying database"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "error_handling::run_examples",
+      "kind": "function_enter",
+      "title": "enter Run Error Handling Examples",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "error_handling::find_user",
+      "kind": "function_enter",
+      "title": "enter Find User",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "user_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up user 1",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"user_lookup\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "found user: alice",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"user_lookup\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "error_handling::find_user",
+      "kind": "function_exit",
+      "title": "return find_user",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "error_handling::find_user",
+      "kind": "function_enter",
+      "title": "enter Find User",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "user_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up user 999",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"missing_user\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "user not found",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"missing_user\",\n    attempts: 1,\n    errors_encountered: [\n        \"User not found: 999\",\n    ],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "error_handling::find_user",
+      "kind": "function_exit",
+      "title": "return find_user",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_post_with_author",
+      "kind": "function_enter",
+      "title": "enter Get Post With Author",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "post_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "fetching post with author info",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"post_with_author\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "call_id": 5,
+      "parent_call_id": 4,
+      "node_id": "error_handling::find_post",
+      "kind": "function_enter",
+      "title": "enter Find Post",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "post_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up post 100",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"post_with_author\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "found post: 'Hello World'",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"post_with_author\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "call_id": 5,
+      "parent_call_id": 4,
+      "node_id": "error_handling::find_post",
+      "kind": "function_exit",
+      "title": "return find_post",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<(u64, alloc::string::String), error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 16,
+      "call_id": 6,
+      "parent_call_id": 4,
+      "node_id": "error_handling::find_user",
+      "kind": "function_enter",
+      "title": "enter Find User",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "user_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 17,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up user 1",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"post_with_author\",\n    attempts: 2,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 18,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "found user: alice",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"post_with_author\",\n    attempts: 2,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 19,
+      "call_id": 6,
+      "parent_call_id": 4,
+      "node_id": "error_handling::find_user",
+      "kind": "function_exit",
+      "title": "return find_user",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 20,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "got post by alice: 'Hello World'",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"post_with_author\",\n    attempts: 2,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Success,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 21,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_post_with_author",
+      "kind": "function_exit",
+      "title": "return get_post_with_author",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<(alloc::string::String, alloc::string::String), error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 22,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "error_handling::create_comment",
+      "kind": "function_enter",
+      "title": "enter Create Comment",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "user_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "post_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "comment",
+          "preview": "type &str"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 23,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "creating comment",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 24,
+      "call_id": 8,
+      "parent_call_id": 7,
+      "node_id": "error_handling::find_user",
+      "kind": "function_enter",
+      "title": "enter Find User",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "user_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 25,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up user 1",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 26,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "found user: alice",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 27,
+      "call_id": 8,
+      "parent_call_id": 7,
+      "node_id": "error_handling::find_user",
+      "kind": "function_exit",
+      "title": "return find_user",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 28,
+      "call_id": 9,
+      "parent_call_id": 7,
+      "node_id": "error_handling::check_permission",
+      "kind": "function_enter",
+      "title": "enter Check Permission",
+      "values": [
+        {
+          "name": "user",
+          "preview": "type &str"
+        },
+        {
+          "name": "action",
+          "preview": "type &str"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "checking if 'alice' can 'comment'",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 2,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "permission granted",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 2,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 31,
+      "call_id": 9,
+      "parent_call_id": 7,
+      "node_id": "error_handling::check_permission",
+      "kind": "function_exit",
+      "title": "return check_permission",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<(), error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 32,
+      "call_id": 10,
+      "parent_call_id": 7,
+      "node_id": "error_handling::find_post",
+      "kind": "function_enter",
+      "title": "enter Find Post",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "post_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 33,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up post 100",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 3,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 34,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "found post: 'Hello World'",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 3,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 35,
+      "call_id": 10,
+      "parent_call_id": 7,
+      "node_id": "error_handling::find_post",
+      "kind": "function_exit",
+      "title": "return find_post",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<(u64, alloc::string::String), error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 36,
+      "call_id": 11,
+      "parent_call_id": 7,
+      "node_id": "error_handling::validate_input",
+      "kind": "function_enter",
+      "title": "enter Validate Input",
+      "values": [
+        {
+          "name": "input",
+          "preview": "type &str"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 37,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "validating input: 'Great post!'",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 4,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 38,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "validation passed",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 4,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 39,
+      "call_id": 11,
+      "parent_call_id": 7,
+      "node_id": "error_handling::validate_input",
+      "kind": "function_exit",
+      "title": "return validate_input",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 40,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "alice commented: 'Great post!'",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"create_comment\",\n    attempts: 4,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Success,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "error_handling::create_comment",
+      "kind": "function_exit",
+      "title": "return create_comment",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 42,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "error_handling::create_comment",
+      "kind": "function_enter",
+      "title": "enter Create Comment",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "user_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "post_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "comment",
+          "preview": "type &str"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 43,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "creating comment",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"comment_missing_post\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 44,
+      "call_id": 13,
+      "parent_call_id": 12,
+      "node_id": "error_handling::find_user",
+      "kind": "function_enter",
+      "title": "enter Find User",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "user_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 45,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up user 1",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"comment_missing_post\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "found user: alice",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"comment_missing_post\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 47,
+      "call_id": 13,
+      "parent_call_id": 12,
+      "node_id": "error_handling::find_user",
+      "kind": "function_exit",
+      "title": "return find_user",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "call_id": 14,
+      "parent_call_id": 12,
+      "node_id": "error_handling::check_permission",
+      "kind": "function_enter",
+      "title": "enter Check Permission",
+      "values": [
+        {
+          "name": "user",
+          "preview": "type &str"
+        },
+        {
+          "name": "action",
+          "preview": "type &str"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 49,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "checking if 'alice' can 'comment'",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"comment_missing_post\",\n    attempts: 2,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 50,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "permission granted",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"comment_missing_post\",\n    attempts: 2,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 51,
+      "call_id": 14,
+      "parent_call_id": 12,
+      "node_id": "error_handling::check_permission",
+      "kind": "function_exit",
+      "title": "return check_permission",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<(), error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 52,
+      "call_id": 15,
+      "parent_call_id": 12,
+      "node_id": "error_handling::find_post",
+      "kind": "function_enter",
+      "title": "enter Find Post",
+      "values": [
+        {
+          "name": "db",
+          "preview": "type &mut error_handling::MockDatabase"
+        },
+        {
+          "name": "post_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 53,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "looking up post 999",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"comment_missing_post\",\n    attempts: 3,\n    errors_encountered: [],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 54,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "post not found",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"comment_missing_post\",\n    attempts: 3,\n    errors_encountered: [\n        \"Post not found: 999\",\n    ],\n    recovered: false,\n    final_status: InProgress,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 55,
+      "call_id": 15,
+      "parent_call_id": 12,
+      "node_id": "error_handling::find_post",
+      "kind": "function_exit",
+      "title": "return find_post",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<(u64, alloc::string::String), error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 56,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "error_handling::create_comment",
+      "kind": "function_exit",
+      "title": "panic create_comment",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 57,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "error_handling::load_config",
+      "kind": "function_enter",
+      "title": "enter Load Config",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 58,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "loading configuration",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"config\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "config loaded",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"config\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 60,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "error_handling::load_config",
+      "kind": "function_exit",
+      "title": "return load_config",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type error_handling::Config"
+        }
+      ]
+    },
+    {
+      "seq": 61,
+      "call_id": 17,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_database_url",
+      "kind": "function_enter",
+      "title": "enter Get Database URL",
+      "values": [
+        {
+          "name": "config",
+          "preview": "type &error_handling::Config"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 62,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "getting database URL",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"config\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 63,
+      "call_id": 17,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_database_url",
+      "kind": "function_exit",
+      "title": "return get_database_url",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 64,
+      "call_id": 18,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_api_key",
+      "kind": "function_enter",
+      "title": "enter Get API Key",
+      "values": [
+        {
+          "name": "config",
+          "preview": "type &error_handling::Config"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 65,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "getting API key",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"config\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 66,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "API key not found",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"config\",\n    attempts: 0,\n    errors_encountered: [\n        \"Validation failed for api_key: not configured\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 67,
+      "call_id": 18,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_api_key",
+      "kind": "function_exit",
+      "title": "return get_api_key",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 68,
+      "call_id": 19,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_timeout_or_default",
+      "kind": "function_enter",
+      "title": "enter Get Timeout",
+      "values": [
+        {
+          "name": "config",
+          "preview": "type &error_handling::Config"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 69,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "getting timeout",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"config\",\n    attempts: 0,\n    errors_encountered: [\n        \"Validation failed for api_key: not configured\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 70,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "timeout: 30s",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"config\",\n    attempts: 0,\n    errors_encountered: [\n        \"Validation failed for api_key: not configured\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 71,
+      "call_id": 19,
+      "parent_call_id": 1,
+      "node_id": "error_handling::get_timeout_or_default",
+      "kind": "function_exit",
+      "title": "return get_timeout_or_default",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 72,
+      "call_id": 20,
+      "parent_call_id": 1,
+      "node_id": "error_handling::fetch_with_retry",
+      "kind": "function_enter",
+      "title": "enter Fetch With Retry",
+      "values": [
+        {
+          "name": "url",
+          "preview": "type &str"
+        },
+        {
+          "name": "max_retries",
+          "preview": "type u32"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 73,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "fetching https://api.example.com/data with 3 retries",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fetch_with_retry\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 74,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "attempt 1/3",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fetch_with_retry\",\n    attempts: 1,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 75,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "request failed, will retry",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fetch_with_retry\",\n    attempts: 1,\n    errors_encountered: [\n        \"Network error for https://api.example.com/data: Some(503)\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 76,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "attempt 2/3",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fetch_with_retry\",\n    attempts: 2,\n    errors_encountered: [\n        \"Network error for https://api.example.com/data: Some(503)\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 77,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "request failed, will retry",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fetch_with_retry\",\n    attempts: 2,\n    errors_encountered: [\n        \"Network error for https://api.example.com/data: Some(503)\",\n        \"Network error for https://api.example.com/data: Some(503)\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 78,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "attempt 3/3",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fetch_with_retry\",\n    attempts: 3,\n    errors_encountered: [\n        \"Network error for https://api.example.com/data: Some(503)\",\n        \"Network error for https://api.example.com/data: Some(503)\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 79,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "request succeeded after retries",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fetch_with_retry\",\n    attempts: 3,\n    errors_encountered: [\n        \"Network error for https://api.example.com/data: Some(503)\",\n        \"Network error for https://api.example.com/data: Some(503)\",\n    ],\n    recovered: true,\n    final_status: Success,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 80,
+      "call_id": 20,
+      "parent_call_id": 1,
+      "node_id": "error_handling::fetch_with_retry",
+      "kind": "function_exit",
+      "title": "panic fetch_with_retry",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 81,
+      "call_id": 21,
+      "parent_call_id": 1,
+      "node_id": "error_handling::with_fallback",
+      "kind": "function_enter",
+      "title": "enter Fallback Strategy",
+      "values": [
+        {
+          "name": "primary",
+          "preview": "type error_handling::run_examples::{{closure}}"
+        },
+        {
+          "name": "fallback",
+          "preview": "type error_handling::run_examples::{{closure}}"
+        },
+        {
+          "name": "state",
+          "preview": "type &mut error_handling::OperationState"
+        }
+      ]
+    },
+    {
+      "seq": 82,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "trying primary strategy",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fallback\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 83,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "primary: checking cache",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fallback\",\n    attempts: 0,\n    errors_encountered: [],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 84,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "primary failed, trying fallback",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fallback\",\n    attempts: 0,\n    errors_encountered: [\n        \"cache not found: key123\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 85,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "error_handling::OperationState",
+      "kind": "value_snapshot",
+      "title": "fallback: querying database",
+      "values": [
+        {
+          "name": "Operation State",
+          "preview": "OperationState {\n    operation_name: \"fallback\",\n    attempts: 0,\n    errors_encountered: [\n        \"cache not found: key123\",\n    ],\n    recovered: false,\n    final_status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 86,
+      "call_id": 21,
+      "parent_call_id": 1,
+      "node_id": "error_handling::with_fallback",
+      "kind": "function_exit",
+      "title": "return with_fallback",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::result::Result<alloc::string::String, error_handling::AppError>"
+        }
+      ]
+    },
+    {
+      "seq": 87,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "error_handling::run_examples",
+      "kind": "function_exit",
+      "title": "return run_examples",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    }
+  ]
+}

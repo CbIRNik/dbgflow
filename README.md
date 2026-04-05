@@ -200,7 +200,7 @@ Current event types:
 - `web`: React Flow UI sources, built with `bun`
 - `docs/architecture.md`: system architecture notes
 - `docs/publishing.md`: release checklist for future versions
-- `examples/real-project`: checked fixture demonstrating real-project integration
+- `examples/pipelines`: standalone example workspace with traced pipeline binaries and saved session JSON files
 
 ## UI Build
 
@@ -237,7 +237,8 @@ Useful commands:
 cargo test
 bun run --cwd web build
 cargo run -p dbgflow -- demo --serve
-cargo run -p dbgflow -- test --manifest-path examples/real-project/Cargo.toml -- --lib
+cargo run --manifest-path examples/pipelines/Cargo.toml --example loops
+cargo run -p dbgflow -- serve examples/pipelines
 ```
 
 ## Published Packages

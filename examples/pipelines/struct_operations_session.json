@@ -1,0 +1,1646 @@
+{
+  "title": "Struct Operations Pipeline",
+  "nodes": [
+    {
+      "id": "struct_operations::AccountBuilder",
+      "label": "Account Builder",
+      "kind": "type",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 81,
+      "source": "struct AccountBuilder {\n    id: Option<u64>,\n    username: Option<String>,\n    email: Option<String>,\n    display_name: Option<String>,\n    build_step: String,\n}\n"
+    },
+    {
+      "id": "struct_operations::Order",
+      "label": "Order",
+      "kind": "type",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 253,
+      "source": "struct Order {\n    id: u64,\n    customer_id: u64,\n    items: Vec<OrderItem>,\n    shipping: ShippingInfo,\n    status: OrderStatus,\n    totals: OrderTotals,\n}\n"
+    },
+    {
+      "id": "struct_operations::UserAccount",
+      "label": "User Account",
+      "kind": "type",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 12,
+      "source": "struct UserAccount {\n    id: u64,\n    username: String,\n    email: String,\n    profile: UserProfile,\n    settings: AccountSettings,\n    status: AccountStatus,\n}\n"
+    },
+    {
+      "id": "struct_operations::add_item",
+      "label": "Add Item",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 340,
+      "source": "fn add_item(order: &mut Order, product_id: u64, name: &str, quantity: u32, price: f64) {\n    order.emit_snapshot(&format!(\"adding {} x {}\", quantity, name));\n    order\n        .items\n        .push(OrderItem {\n            product_id,\n            name: name.to_owned(),\n            quantity,\n            unit_price: price,\n        });\n    recalculate_totals(order);\n    order.emit_snapshot(\"item added\");\n}\n"
+    },
+    {
+      "id": "struct_operations::build_account",
+      "label": "Build Account",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 130,
+      "source": "fn build_account(builder: &AccountBuilder) -> UserAccount {\n    builder.emit_snapshot(\"building final account\");\n    UserAccount {\n        id: builder.id.unwrap_or(0),\n        username: builder.username.clone().unwrap_or_default(),\n        email: builder.email.clone().unwrap_or_default(),\n        profile: UserProfile {\n            display_name: builder\n                .display_name\n                .clone()\n                .unwrap_or_else(|| { builder.username.clone().unwrap_or_default() }),\n            bio: None,\n            avatar_url: None,\n            location: None,\n            joined_at: \"2024-01-15\".to_owned(),\n            follower_count: 0,\n            following_count: 0,\n        },\n        settings: AccountSettings {\n            theme: Theme::System,\n            notifications: NotificationSettings {\n                email_enabled: true,\n                push_enabled: true,\n                digest_frequency: DigestFrequency::Weekly,\n            },\n            privacy: PrivacySettings {\n                profile_visible: true,\n                show_email: false,\n                allow_mentions: true,\n            },\n            language: \"en\".to_owned(),\n        },\n        status: AccountStatus::PendingVerification,\n    }\n}\n"
+    },
+    {
+      "id": "struct_operations::builder_with_display_name",
+      "label": "Set Display Name",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 123,
+      "source": "fn builder_with_display_name(builder: &mut AccountBuilder, name: &str) {\n    builder.display_name = Some(name.to_owned());\n    builder.build_step = \"display name set\".to_owned();\n    builder.emit_snapshot(\"display name configured\");\n}\n"
+    },
+    {
+      "id": "struct_operations::builder_with_email",
+      "label": "Set Email",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 116,
+      "source": "fn builder_with_email(builder: &mut AccountBuilder, email: &str) {\n    builder.email = Some(email.to_owned());\n    builder.build_step = \"email set\".to_owned();\n    builder.emit_snapshot(\"email configured\");\n}\n"
+    },
+    {
+      "id": "struct_operations::builder_with_id",
+      "label": "Set Account ID",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 102,
+      "source": "fn builder_with_id(builder: &mut AccountBuilder, id: u64) {\n    builder.id = Some(id);\n    builder.build_step = \"id set\".to_owned();\n    builder.emit_snapshot(\"id configured\");\n}\n"
+    },
+    {
+      "id": "struct_operations::builder_with_username",
+      "label": "Set Username",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 109,
+      "source": "fn builder_with_username(builder: &mut AccountBuilder, username: &str) {\n    builder.username = Some(username.to_owned());\n    builder.build_step = \"username set\".to_owned();\n    builder.emit_snapshot(\"username configured\");\n}\n"
+    },
+    {
+      "id": "struct_operations::change_theme",
+      "label": "Change Theme",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 188,
+      "source": "fn change_theme(account: &mut UserAccount, theme: Theme) {\n    account.emit_snapshot(&format!(\"current theme: {:?}\", account.settings.theme));\n    account.settings.theme = theme;\n    account.emit_snapshot(\"theme updated\");\n}\n"
+    },
+    {
+      "id": "struct_operations::configure_notifications",
+      "label": "Configure Notifications",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 195,
+      "source": "fn configure_notifications(\n    account: &mut UserAccount,\n    email: bool,\n    push: bool,\n    digest: DigestFrequency,\n) {\n    account.emit_snapshot(\"configuring notification preferences\");\n    account.settings.notifications.email_enabled = email;\n    account.settings.notifications.push_enabled = push;\n    account.settings.notifications.digest_frequency = digest;\n    account.emit_snapshot(\"notifications configured\");\n}\n"
+    },
+    {
+      "id": "struct_operations::create_order",
+      "label": "Create Order",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 311,
+      "source": "fn create_order(customer_id: u64) -> Order {\n    let order = Order {\n        id: 1001,\n        customer_id,\n        items: Vec::new(),\n        shipping: ShippingInfo {\n            address: Address {\n                street: \"123 Main St\".to_owned(),\n                city: \"Springfield\".to_owned(),\n                state: \"IL\".to_owned(),\n                zip: \"62701\".to_owned(),\n                country: \"USA\".to_owned(),\n            },\n            method: ShippingMethod::Standard,\n            tracking_number: None,\n        },\n        status: OrderStatus::Pending,\n        totals: OrderTotals {\n            subtotal: 0.0,\n            shipping: 0.0,\n            tax: 0.0,\n            total: 0.0,\n        },\n    };\n    order.emit_snapshot(\"order created\");\n    order\n}\n"
+    },
+    {
+      "id": "struct_operations::process_order",
+      "label": "Process Order",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 373,
+      "source": "fn process_order(order: &mut Order) {\n    order.emit_snapshot(\"processing order\");\n    order.status = OrderStatus::Processing;\n    order.emit_snapshot(\"order processing\");\n}\n"
+    },
+    {
+      "id": "struct_operations::reactivate_account",
+      "label": "Reactivate Account",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 242,
+      "source": "fn reactivate_account(account: &mut UserAccount) {\n    account.emit_snapshot(\"reactivating account\");\n    account.status = AccountStatus::Active;\n    account.emit_snapshot(\"account reactivated\");\n}\n"
+    },
+    {
+      "id": "struct_operations::recalculate_totals",
+      "label": "Recalculate Totals",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 355,
+      "source": "fn recalculate_totals(order: &mut Order) {\n    order.totals.subtotal = order\n        .items\n        .iter()\n        .map(|item| item.unit_price * item.quantity as f64)\n        .sum();\n    order.totals.shipping = match order.shipping.method {\n        ShippingMethod::Standard => 5.99,\n        ShippingMethod::Express => 12.99,\n        ShippingMethod::Overnight => 24.99,\n    };\n    order.totals.tax = order.totals.subtotal * 0.08;\n    order.totals.total = order.totals.subtotal + order.totals.shipping\n        + order.totals.tax;\n    order.emit_snapshot(&format!(\"totals: ${:.2}\", order.totals.total));\n}\n"
+    },
+    {
+      "id": "struct_operations::run_examples",
+      "label": "Run Struct Examples",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 392,
+      "source": "fn run_examples() {\n    let mut builder = AccountBuilder::new();\n    builder_with_id(&mut builder, 12345);\n    builder_with_username(&mut builder, \"johndoe\");\n    builder_with_email(&mut builder, \"john@example.com\");\n    builder_with_display_name(&mut builder, \"John Doe\");\n    let mut account = build_account(&builder);\n    println!(\"Created account for: {}\", account.username);\n    verify_account(&mut account);\n    update_profile(\n        &mut account,\n        \"Software developer and open source enthusiast\",\n        \"San Francisco, CA\",\n    );\n    change_theme(&mut account, Theme::Dark);\n    configure_notifications(&mut account, true, false, DigestFrequency::Daily);\n    update_privacy(&mut account, true, false);\n    simulate_followers(&mut account, 150, 42);\n    println!(\"Account verified with {} followers\", account.profile.follower_count);\n    suspend_account(&mut account, \"Terms of service violation\");\n    reactivate_account(&mut account);\n    let mut order = create_order(account.id);\n    add_item(&mut order, 101, \"Rust Programming Book\", 1, 49.99);\n    add_item(&mut order, 102, \"Mechanical Keyboard\", 1, 149.99);\n    add_item(&mut order, 103, \"USB-C Cable\", 3, 9.99);\n    process_order(&mut order);\n    ship_order(&mut order, \"1Z999AA10123456784\");\n    println!(\"Order total: ${:.2}\", order.totals.total);\n    println!(\"Tracking: {:?}\", order.shipping.tracking_number);\n}\n"
+    },
+    {
+      "id": "struct_operations::ship_order",
+      "label": "Ship Order",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 380,
+      "source": "fn ship_order(order: &mut Order, tracking: &str) {\n    order.emit_snapshot(\"preparing shipment\");\n    order.status = OrderStatus::Shipped;\n    order.shipping.tracking_number = Some(tracking.to_owned());\n    order.emit_snapshot(&format!(\"shipped with tracking: {}\", tracking));\n}\n"
+    },
+    {
+      "id": "struct_operations::simulate_followers",
+      "label": "Add Followers",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 216,
+      "source": "fn simulate_followers(\n    account: &mut UserAccount,\n    new_followers: u32,\n    new_following: u32,\n) {\n    account\n        .emit_snapshot(\n            &format!(\n                \"current: {} followers, {} following\", account.profile.follower_count,\n                account.profile.following_count\n            ),\n        );\n    account.profile.follower_count += new_followers;\n    account.profile.following_count += new_following;\n    account\n        .emit_snapshot(\n            &format!(\n                \"updated: {} followers, {} following\", account.profile.follower_count,\n                account.profile.following_count\n            ),\n        );\n}\n"
+    },
+    {
+      "id": "struct_operations::suspend_account",
+      "label": "Suspend Account",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 230,
+      "source": "fn suspend_account(account: &mut UserAccount, reason: &str) {\n    account.emit_snapshot(\"initiating suspension\");\n    account.status = AccountStatus::Suspended {\n        reason: reason.to_owned(),\n        until: Some(\"2024-02-15\".to_owned()),\n    };\n    account.emit_snapshot(\"account suspended\");\n}\n"
+    },
+    {
+      "id": "struct_operations::update_privacy",
+      "label": "Update Privacy",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 206,
+      "source": "fn update_privacy(account: &mut UserAccount, profile_visible: bool, show_email: bool) {\n    account.emit_snapshot(\"updating privacy settings\");\n    account.settings.privacy.profile_visible = profile_visible;\n    account.settings.privacy.show_email = show_email;\n    account.emit_snapshot(\"privacy settings updated\");\n}\n"
+    },
+    {
+      "id": "struct_operations::update_profile",
+      "label": "Update Profile",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 178,
+      "source": "fn update_profile(account: &mut UserAccount, bio: &str, location: &str) {\n    account.emit_snapshot(\"updating profile fields\");\n    account.profile.bio = Some(bio.to_owned());\n    account.profile.location = Some(location.to_owned());\n    account.emit_snapshot(\"profile updated\");\n}\n"
+    },
+    {
+      "id": "struct_operations::verify_account",
+      "label": "Verify Account",
+      "kind": "function",
+      "module_path": "struct_operations",
+      "file": "examples/struct_operations.rs",
+      "line": 171,
+      "source": "fn verify_account(account: &mut UserAccount) {\n    account.emit_snapshot(\"starting verification\");\n    account.status = AccountStatus::Active;\n    account.emit_snapshot(\"account verified and active\");\n}\n"
+    }
+  ],
+  "edges": [
+    {
+      "from": "struct_operations::add_item",
+      "to": "struct_operations::Order",
+      "kind": "data_flow",
+      "label": "item added"
+    },
+    {
+      "from": "struct_operations::add_item",
+      "to": "struct_operations::recalculate_totals",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::build_account",
+      "to": "struct_operations::AccountBuilder",
+      "kind": "data_flow",
+      "label": "building final account"
+    },
+    {
+      "from": "struct_operations::builder_with_display_name",
+      "to": "struct_operations::AccountBuilder",
+      "kind": "data_flow",
+      "label": "display name configured"
+    },
+    {
+      "from": "struct_operations::builder_with_email",
+      "to": "struct_operations::AccountBuilder",
+      "kind": "data_flow",
+      "label": "email configured"
+    },
+    {
+      "from": "struct_operations::builder_with_id",
+      "to": "struct_operations::AccountBuilder",
+      "kind": "data_flow",
+      "label": "id configured"
+    },
+    {
+      "from": "struct_operations::builder_with_username",
+      "to": "struct_operations::AccountBuilder",
+      "kind": "data_flow",
+      "label": "username configured"
+    },
+    {
+      "from": "struct_operations::change_theme",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "theme updated"
+    },
+    {
+      "from": "struct_operations::configure_notifications",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "notifications configured"
+    },
+    {
+      "from": "struct_operations::create_order",
+      "to": "struct_operations::Order",
+      "kind": "data_flow",
+      "label": "order created"
+    },
+    {
+      "from": "struct_operations::process_order",
+      "to": "struct_operations::Order",
+      "kind": "data_flow",
+      "label": "order processing"
+    },
+    {
+      "from": "struct_operations::reactivate_account",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "account reactivated"
+    },
+    {
+      "from": "struct_operations::recalculate_totals",
+      "to": "struct_operations::Order",
+      "kind": "data_flow",
+      "label": "totals: $254.34"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::add_item",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::build_account",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::builder_with_display_name",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::builder_with_email",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::builder_with_id",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::builder_with_username",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::change_theme",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::configure_notifications",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::create_order",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::process_order",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::reactivate_account",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::ship_order",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::simulate_followers",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::suspend_account",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::update_privacy",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::update_profile",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::run_examples",
+      "to": "struct_operations::verify_account",
+      "kind": "control_flow"
+    },
+    {
+      "from": "struct_operations::ship_order",
+      "to": "struct_operations::Order",
+      "kind": "data_flow",
+      "label": "shipped with tracking: 1Z999AA10123456784"
+    },
+    {
+      "from": "struct_operations::simulate_followers",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "updated: 150 followers, 42 following"
+    },
+    {
+      "from": "struct_operations::suspend_account",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "account suspended"
+    },
+    {
+      "from": "struct_operations::update_privacy",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "privacy settings updated"
+    },
+    {
+      "from": "struct_operations::update_profile",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "profile updated"
+    },
+    {
+      "from": "struct_operations::verify_account",
+      "to": "struct_operations::UserAccount",
+      "kind": "data_flow",
+      "label": "account verified and active"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "struct_operations::run_examples",
+      "kind": "function_enter",
+      "title": "enter Run Struct Examples",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_id",
+      "kind": "function_enter",
+      "title": "enter Set Account ID",
+      "values": [
+        {
+          "name": "builder",
+          "preview": "type &mut struct_operations::AccountBuilder"
+        },
+        {
+          "name": "id",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "struct_operations::AccountBuilder",
+      "kind": "value_snapshot",
+      "title": "id configured",
+      "values": [
+        {
+          "name": "Account Builder",
+          "preview": "AccountBuilder {\n    id: Some(\n        12345,\n    ),\n    username: None,\n    email: None,\n    display_name: None,\n    build_step: \"id set\",\n}"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_id",
+      "kind": "function_exit",
+      "title": "return builder_with_id",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_username",
+      "kind": "function_enter",
+      "title": "enter Set Username",
+      "values": [
+        {
+          "name": "builder",
+          "preview": "type &mut struct_operations::AccountBuilder"
+        },
+        {
+          "name": "username",
+          "preview": "type &str"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "struct_operations::AccountBuilder",
+      "kind": "value_snapshot",
+      "title": "username configured",
+      "values": [
+        {
+          "name": "Account Builder",
+          "preview": "AccountBuilder {\n    id: Some(\n        12345,\n    ),\n    username: Some(\n        \"johndoe\",\n    ),\n    email: None,\n    display_name: None,\n    build_step: \"username set\",\n}"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_username",
+      "kind": "function_exit",
+      "title": "return builder_with_username",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_email",
+      "kind": "function_enter",
+      "title": "enter Set Email",
+      "values": [
+        {
+          "name": "builder",
+          "preview": "type &mut struct_operations::AccountBuilder"
+        },
+        {
+          "name": "email",
+          "preview": "type &str"
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "struct_operations::AccountBuilder",
+      "kind": "value_snapshot",
+      "title": "email configured",
+      "values": [
+        {
+          "name": "Account Builder",
+          "preview": "AccountBuilder {\n    id: Some(\n        12345,\n    ),\n    username: Some(\n        \"johndoe\",\n    ),\n    email: Some(\n        \"john@example.com\",\n    ),\n    display_name: None,\n    build_step: \"email set\",\n}"
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_email",
+      "kind": "function_exit",
+      "title": "return builder_with_email",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_display_name",
+      "kind": "function_enter",
+      "title": "enter Set Display Name",
+      "values": [
+        {
+          "name": "builder",
+          "preview": "type &mut struct_operations::AccountBuilder"
+        },
+        {
+          "name": "name",
+          "preview": "type &str"
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "struct_operations::AccountBuilder",
+      "kind": "value_snapshot",
+      "title": "display name configured",
+      "values": [
+        {
+          "name": "Account Builder",
+          "preview": "AccountBuilder {\n    id: Some(\n        12345,\n    ),\n    username: Some(\n        \"johndoe\",\n    ),\n    email: Some(\n        \"john@example.com\",\n    ),\n    display_name: Some(\n        \"John Doe\",\n    ),\n    build_step: \"display name set\",\n}"
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::builder_with_display_name",
+      "kind": "function_exit",
+      "title": "return builder_with_display_name",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::build_account",
+      "kind": "function_enter",
+      "title": "enter Build Account",
+      "values": [
+        {
+          "name": "builder",
+          "preview": "type &struct_operations::AccountBuilder"
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "struct_operations::AccountBuilder",
+      "kind": "value_snapshot",
+      "title": "building final account",
+      "values": [
+        {
+          "name": "Account Builder",
+          "preview": "AccountBuilder {\n    id: Some(\n        12345,\n    ),\n    username: Some(\n        \"johndoe\",\n    ),\n    email: Some(\n        \"john@example.com\",\n    ),\n    display_name: Some(\n        \"John Doe\",\n    ),\n    build_step: \"display name set\",\n}"
+        }
+      ]
+    },
+    {
+      "seq": 16,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::build_account",
+      "kind": "function_exit",
+      "title": "return build_account",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type struct_operations::UserAccount"
+        }
+      ]
+    },
+    {
+      "seq": 17,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::verify_account",
+      "kind": "function_enter",
+      "title": "enter Verify Account",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        }
+      ]
+    },
+    {
+      "seq": 18,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "starting verification",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: None,\n        avatar_url: None,\n        location: None,\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: System,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: true,\n            digest_frequency: Weekly,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: PendingVerification,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 19,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "account verified and active",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: None,\n        avatar_url: None,\n        location: None,\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: System,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: true,\n            digest_frequency: Weekly,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 20,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::verify_account",
+      "kind": "function_exit",
+      "title": "return verify_account",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 21,
+      "call_id": 8,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::update_profile",
+      "kind": "function_enter",
+      "title": "enter Update Profile",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        },
+        {
+          "name": "bio",
+          "preview": "type &str"
+        },
+        {
+          "name": "location",
+          "preview": "type &str"
+        }
+      ]
+    },
+    {
+      "seq": 22,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "updating profile fields",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: None,\n        avatar_url: None,\n        location: None,\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: System,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: true,\n            digest_frequency: Weekly,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 23,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "profile updated",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: System,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: true,\n            digest_frequency: Weekly,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 24,
+      "call_id": 8,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::update_profile",
+      "kind": "function_exit",
+      "title": "return update_profile",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 25,
+      "call_id": 9,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::change_theme",
+      "kind": "function_enter",
+      "title": "enter Change Theme",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        },
+        {
+          "name": "theme",
+          "preview": "type struct_operations::Theme"
+        }
+      ]
+    },
+    {
+      "seq": 26,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "current theme: System",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: System,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: true,\n            digest_frequency: Weekly,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 27,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "theme updated",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: true,\n            digest_frequency: Weekly,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 28,
+      "call_id": 9,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::change_theme",
+      "kind": "function_exit",
+      "title": "return change_theme",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "call_id": 10,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::configure_notifications",
+      "kind": "function_enter",
+      "title": "enter Configure Notifications",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        },
+        {
+          "name": "email",
+          "preview": "type bool"
+        },
+        {
+          "name": "push",
+          "preview": "type bool"
+        },
+        {
+          "name": "digest",
+          "preview": "type struct_operations::DigestFrequency"
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "configuring notification preferences",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: true,\n            digest_frequency: Weekly,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 31,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "notifications configured",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 32,
+      "call_id": 10,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::configure_notifications",
+      "kind": "function_exit",
+      "title": "return configure_notifications",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 33,
+      "call_id": 11,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::update_privacy",
+      "kind": "function_enter",
+      "title": "enter Update Privacy",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        },
+        {
+          "name": "profile_visible",
+          "preview": "type bool"
+        },
+        {
+          "name": "show_email",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 34,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "updating privacy settings",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 35,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "privacy settings updated",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 36,
+      "call_id": 11,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::update_privacy",
+      "kind": "function_exit",
+      "title": "return update_privacy",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 37,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::simulate_followers",
+      "kind": "function_enter",
+      "title": "enter Add Followers",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        },
+        {
+          "name": "new_followers",
+          "preview": "type u32"
+        },
+        {
+          "name": "new_following",
+          "preview": "type u32"
+        }
+      ]
+    },
+    {
+      "seq": 38,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "current: 0 followers, 0 following",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 0,\n        following_count: 0,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 39,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "updated: 150 followers, 42 following",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 150,\n        following_count: 42,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 40,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::simulate_followers",
+      "kind": "function_exit",
+      "title": "return simulate_followers",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "call_id": 13,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::suspend_account",
+      "kind": "function_enter",
+      "title": "enter Suspend Account",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        },
+        {
+          "name": "reason",
+          "preview": "type &str"
+        }
+      ]
+    },
+    {
+      "seq": 42,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "initiating suspension",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 150,\n        following_count: 42,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 43,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "account suspended",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 150,\n        following_count: 42,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Suspended {\n        reason: \"Terms of service violation\",\n        until: Some(\n            \"2024-02-15\",\n        ),\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 44,
+      "call_id": 13,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::suspend_account",
+      "kind": "function_exit",
+      "title": "return suspend_account",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 45,
+      "call_id": 14,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::reactivate_account",
+      "kind": "function_enter",
+      "title": "enter Reactivate Account",
+      "values": [
+        {
+          "name": "account",
+          "preview": "type &mut struct_operations::UserAccount"
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "reactivating account",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 150,\n        following_count: 42,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Suspended {\n        reason: \"Terms of service violation\",\n        until: Some(\n            \"2024-02-15\",\n        ),\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 47,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "struct_operations::UserAccount",
+      "kind": "value_snapshot",
+      "title": "account reactivated",
+      "values": [
+        {
+          "name": "User Account",
+          "preview": "UserAccount {\n    id: 12345,\n    username: \"johndoe\",\n    email: \"john@example.com\",\n    profile: UserProfile {\n        display_name: \"John Doe\",\n        bio: Some(\n            \"Software developer and open source enthusiast\",\n        ),\n        avatar_url: None,\n        location: Some(\n            \"San Francisco, CA\",\n        ),\n        joined_at: \"2024-01-15\",\n        follower_count: 150,\n        following_count: 42,\n    },\n    settings: AccountSettings {\n        theme: Dark,\n        notifications: NotificationSettings {\n            email_enabled: true,\n            push_enabled: false,\n            digest_frequency: Daily,\n        },\n        privacy: PrivacySettings {\n            profile_visible: true,\n            show_email: false,\n            allow_mentions: true,\n        },\n        language: \"en\",\n    },\n    status: Active,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "call_id": 14,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::reactivate_account",
+      "kind": "function_exit",
+      "title": "return reactivate_account",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 49,
+      "call_id": 15,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::create_order",
+      "kind": "function_enter",
+      "title": "enter Create Order",
+      "values": [
+        {
+          "name": "customer_id",
+          "preview": "type u64"
+        }
+      ]
+    },
+    {
+      "seq": 50,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "order created",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 0.0,\n        shipping: 0.0,\n        tax: 0.0,\n        total: 0.0,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 51,
+      "call_id": 15,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::create_order",
+      "kind": "function_exit",
+      "title": "return create_order",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type struct_operations::Order"
+        }
+      ]
+    },
+    {
+      "seq": 52,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::add_item",
+      "kind": "function_enter",
+      "title": "enter Add Item",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        },
+        {
+          "name": "product_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "name",
+          "preview": "type &str"
+        },
+        {
+          "name": "quantity",
+          "preview": "type u32"
+        },
+        {
+          "name": "price",
+          "preview": "type f64"
+        }
+      ]
+    },
+    {
+      "seq": 53,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "adding 1 x Rust Programming Book",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 0.0,\n        shipping: 0.0,\n        tax: 0.0,\n        total: 0.0,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 54,
+      "call_id": 17,
+      "parent_call_id": 16,
+      "node_id": "struct_operations::recalculate_totals",
+      "kind": "function_enter",
+      "title": "enter Recalculate Totals",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        }
+      ]
+    },
+    {
+      "seq": 55,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "totals: $59.98",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 49.99,\n        shipping: 5.99,\n        tax: 3.9992,\n        total: 59.979200000000006,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 56,
+      "call_id": 17,
+      "parent_call_id": 16,
+      "node_id": "struct_operations::recalculate_totals",
+      "kind": "function_exit",
+      "title": "return recalculate_totals",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 57,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "item added",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 49.99,\n        shipping: 5.99,\n        tax: 3.9992,\n        total: 59.979200000000006,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 58,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::add_item",
+      "kind": "function_exit",
+      "title": "return add_item",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "call_id": 18,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::add_item",
+      "kind": "function_enter",
+      "title": "enter Add Item",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        },
+        {
+          "name": "product_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "name",
+          "preview": "type &str"
+        },
+        {
+          "name": "quantity",
+          "preview": "type u32"
+        },
+        {
+          "name": "price",
+          "preview": "type f64"
+        }
+      ]
+    },
+    {
+      "seq": 60,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "adding 1 x Mechanical Keyboard",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 49.99,\n        shipping: 5.99,\n        tax: 3.9992,\n        total: 59.979200000000006,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 61,
+      "call_id": 19,
+      "parent_call_id": 18,
+      "node_id": "struct_operations::recalculate_totals",
+      "kind": "function_enter",
+      "title": "enter Recalculate Totals",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        }
+      ]
+    },
+    {
+      "seq": 62,
+      "call_id": 19,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "totals: $221.97",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 199.98000000000002,\n        shipping: 5.99,\n        tax: 15.998400000000002,\n        total: 221.96840000000003,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 63,
+      "call_id": 19,
+      "parent_call_id": 18,
+      "node_id": "struct_operations::recalculate_totals",
+      "kind": "function_exit",
+      "title": "return recalculate_totals",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 64,
+      "call_id": 18,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "item added",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 199.98000000000002,\n        shipping: 5.99,\n        tax: 15.998400000000002,\n        total: 221.96840000000003,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 65,
+      "call_id": 18,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::add_item",
+      "kind": "function_exit",
+      "title": "return add_item",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 66,
+      "call_id": 20,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::add_item",
+      "kind": "function_enter",
+      "title": "enter Add Item",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        },
+        {
+          "name": "product_id",
+          "preview": "type u64"
+        },
+        {
+          "name": "name",
+          "preview": "type &str"
+        },
+        {
+          "name": "quantity",
+          "preview": "type u32"
+        },
+        {
+          "name": "price",
+          "preview": "type f64"
+        }
+      ]
+    },
+    {
+      "seq": 67,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "adding 3 x USB-C Cable",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 199.98000000000002,\n        shipping: 5.99,\n        tax: 15.998400000000002,\n        total: 221.96840000000003,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 68,
+      "call_id": 21,
+      "parent_call_id": 20,
+      "node_id": "struct_operations::recalculate_totals",
+      "kind": "function_enter",
+      "title": "enter Recalculate Totals",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        }
+      ]
+    },
+    {
+      "seq": 69,
+      "call_id": 21,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "totals: $254.34",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n        OrderItem {\n            product_id: 103,\n            name: \"USB-C Cable\",\n            quantity: 3,\n            unit_price: 9.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 229.95000000000002,\n        shipping: 5.99,\n        tax: 18.396,\n        total: 254.336,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 70,
+      "call_id": 21,
+      "parent_call_id": 20,
+      "node_id": "struct_operations::recalculate_totals",
+      "kind": "function_exit",
+      "title": "return recalculate_totals",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 71,
+      "call_id": 20,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "item added",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n        OrderItem {\n            product_id: 103,\n            name: \"USB-C Cable\",\n            quantity: 3,\n            unit_price: 9.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 229.95000000000002,\n        shipping: 5.99,\n        tax: 18.396,\n        total: 254.336,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 72,
+      "call_id": 20,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::add_item",
+      "kind": "function_exit",
+      "title": "return add_item",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 73,
+      "call_id": 22,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::process_order",
+      "kind": "function_enter",
+      "title": "enter Process Order",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        }
+      ]
+    },
+    {
+      "seq": 74,
+      "call_id": 22,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "processing order",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n        OrderItem {\n            product_id: 103,\n            name: \"USB-C Cable\",\n            quantity: 3,\n            unit_price: 9.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Pending,\n    totals: OrderTotals {\n        subtotal: 229.95000000000002,\n        shipping: 5.99,\n        tax: 18.396,\n        total: 254.336,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 75,
+      "call_id": 22,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "order processing",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n        OrderItem {\n            product_id: 103,\n            name: \"USB-C Cable\",\n            quantity: 3,\n            unit_price: 9.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Processing,\n    totals: OrderTotals {\n        subtotal: 229.95000000000002,\n        shipping: 5.99,\n        tax: 18.396,\n        total: 254.336,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 76,
+      "call_id": 22,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::process_order",
+      "kind": "function_exit",
+      "title": "return process_order",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 77,
+      "call_id": 23,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::ship_order",
+      "kind": "function_enter",
+      "title": "enter Ship Order",
+      "values": [
+        {
+          "name": "order",
+          "preview": "type &mut struct_operations::Order"
+        },
+        {
+          "name": "tracking",
+          "preview": "type &str"
+        }
+      ]
+    },
+    {
+      "seq": 78,
+      "call_id": 23,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "preparing shipment",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n        OrderItem {\n            product_id: 103,\n            name: \"USB-C Cable\",\n            quantity: 3,\n            unit_price: 9.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: None,\n    },\n    status: Processing,\n    totals: OrderTotals {\n        subtotal: 229.95000000000002,\n        shipping: 5.99,\n        tax: 18.396,\n        total: 254.336,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 79,
+      "call_id": 23,
+      "parent_call_id": null,
+      "node_id": "struct_operations::Order",
+      "kind": "value_snapshot",
+      "title": "shipped with tracking: 1Z999AA10123456784",
+      "values": [
+        {
+          "name": "Order",
+          "preview": "Order {\n    id: 1001,\n    customer_id: 12345,\n    items: [\n        OrderItem {\n            product_id: 101,\n            name: \"Rust Programming Book\",\n            quantity: 1,\n            unit_price: 49.99,\n        },\n        OrderItem {\n            product_id: 102,\n            name: \"Mechanical Keyboard\",\n            quantity: 1,\n            unit_price: 149.99,\n        },\n        OrderItem {\n            product_id: 103,\n            name: \"USB-C Cable\",\n            quantity: 3,\n            unit_price: 9.99,\n        },\n    ],\n    shipping: ShippingInfo {\n        address: Address {\n            street: \"123 Main St\",\n            city: \"Springfield\",\n            state: \"IL\",\n            zip: \"62701\",\n            country: \"USA\",\n        },\n        method: Standard,\n        tracking_number: Some(\n            \"1Z999AA10123456784\",\n        ),\n    },\n    status: Shipped,\n    totals: OrderTotals {\n        subtotal: 229.95000000000002,\n        shipping: 5.99,\n        tax: 18.396,\n        total: 254.336,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 80,
+      "call_id": 23,
+      "parent_call_id": 1,
+      "node_id": "struct_operations::ship_order",
+      "kind": "function_exit",
+      "title": "return ship_order",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 81,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "struct_operations::run_examples",
+      "kind": "function_exit",
+      "title": "return run_examples",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    }
+  ]
+}

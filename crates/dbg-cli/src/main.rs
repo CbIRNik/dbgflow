@@ -41,9 +41,9 @@ enum Command {
         port: u16,
     },
 
-    /// Serve a previously saved session JSON file.
+    /// Serve a saved session JSON file or aggregate all JSON sessions in a directory.
     Serve {
-        /// Path to the session JSON file.
+        /// Path to a session JSON file, or a directory containing session JSON files.
         session: PathBuf,
 
         /// Port for the UI server.

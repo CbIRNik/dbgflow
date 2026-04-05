@@ -22,7 +22,8 @@ bun run build
 
 ```bash
 cargo test
-cargo test --manifest-path examples/real-project/Cargo.toml
+cargo check --manifest-path examples/pipelines/Cargo.toml --examples
+cargo run --manifest-path examples/pipelines/Cargo.toml --example loops
 ```
 
 3. Verify package contents:

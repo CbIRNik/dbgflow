@@ -1,0 +1,1362 @@
+{
+  "title": "Collections Pipeline",
+  "nodes": [
+    {
+      "id": "collections::SetState",
+      "label": "Set Operations",
+      "kind": "type",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 146,
+      "source": "struct SetState {\n    set_a: HashSet<i32>,\n    set_b: HashSet<i32>,\n    result: HashSet<i32>,\n}\n"
+    },
+    {
+      "id": "collections::SortedScores",
+      "label": "Sorted Scores",
+      "kind": "type",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 190,
+      "source": "struct SortedScores {\n    scores: BTreeMap<String, i32>,\n    min_score: Option<i32>,\n    max_score: Option<i32>,\n}\n"
+    },
+    {
+      "id": "collections::TaskQueue",
+      "label": "Task Queue",
+      "kind": "type",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 233,
+      "source": "struct TaskQueue {\n    queue: VecDeque<String>,\n    processed_count: usize,\n    high_priority_count: usize,\n}\n"
+    },
+    {
+      "id": "collections::VecState",
+      "label": "Vec State",
+      "kind": "type",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 39,
+      "source": "struct VecState {\n    elements: Vec<i32>,\n    capacity: usize,\n    operations_count: usize,\n}\n"
+    },
+    {
+      "id": "collections::WordCounter",
+      "label": "Word Counter",
+      "kind": "type",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 96,
+      "source": "struct WordCounter {\n    counts: HashMap<String, usize>,\n    total_words: usize,\n    unique_words: usize,\n}\n"
+    },
+    {
+      "id": "collections::add_scores",
+      "label": "Add Scores",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 197,
+      "source": "fn add_scores(\n    state: &mut SortedScores,\n    entries: &[(&str, i32)],\n    stats: &mut CollectionStats,\n) {\n    stats.items_before = state.scores.len();\n    state.emit_snapshot(&format!(\"adding {} scores\", entries.len()));\n    for (name, score) in entries {\n        state.scores.insert(name.to_string(), *score);\n        stats.items_added += 1;\n        state.min_score = Some(state.min_score.map_or(*score, |m| m.min(*score)));\n        state.max_score = Some(state.max_score.map_or(*score, |m| m.max(*score)));\n    }\n    stats.items_after = state.scores.len();\n    state\n        .emit_snapshot(\n            &format!(\n                \"now {} scores, range {:?}..{:?}\", state.scores.len(), state.min_score,\n                state.max_score\n            ),\n        );\n}\n"
+    },
+    {
+      "id": "collections::add_task",
+      "label": "Add Task",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 240,
+      "source": "fn add_task(\n    queue: &mut TaskQueue,\n    task: &str,\n    high_priority: bool,\n    stats: &mut CollectionStats,\n) {\n    stats.items_before = queue.queue.len();\n    queue\n        .emit_snapshot(\n            &format!(\n                \"adding task: {} (priority: {})\", task, if high_priority { \"high\" } else\n                { \"normal\" }\n            ),\n        );\n    if high_priority {\n        queue.queue.push_front(task.to_owned());\n        queue.high_priority_count += 1;\n    } else {\n        queue.queue.push_back(task.to_owned());\n    }\n    stats.items_added = 1;\n    stats.items_after = queue.queue.len();\n    queue.emit_snapshot(&format!(\"queue size: {}\", queue.queue.len()));\n}\n"
+    },
+    {
+      "id": "collections::count_words",
+      "label": "Count Words",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 103,
+      "source": "fn count_words(text: &str, counter: &mut WordCounter, stats: &mut CollectionStats) {\n    stats.items_before = counter.counts.len();\n    counter.emit_snapshot(\"starting word count\");\n    for word in text.split_whitespace() {\n        let normalized = word\n            .to_lowercase()\n            .chars()\n            .filter(|c| c.is_alphabetic())\n            .collect::<String>();\n        if !normalized.is_empty() {\n            *counter.counts.entry(normalized).or_insert(0) += 1;\n            counter.total_words += 1;\n        }\n    }\n    counter.unique_words = counter.counts.len();\n    stats.items_after = counter.counts.len();\n    stats.items_added = counter.counts.len() - stats.items_before;\n    counter\n        .emit_snapshot(\n            &format!(\"{} total, {} unique\", counter.total_words, counter.unique_words),\n        );\n}\n"
+    },
+    {
+      "id": "collections::get_score_range",
+      "label": "Get Score Range",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 215,
+      "source": "fn get_score_range(\n    state: &SortedScores,\n    min: i32,\n    max: i32,\n    stats: &mut CollectionStats,\n) -> Vec<(String, i32)> {\n    state.emit_snapshot(&format!(\"finding scores in range {}..={}\", min, max));\n    let result: Vec<_> = state\n        .scores\n        .iter()\n        .filter(|(_, score)| **score >= min && **score <= max)\n        .map(|(name, score)| (name.clone(), *score))\n        .collect();\n    stats.items_after = result.len();\n    state.emit_snapshot(&format!(\"found {} scores in range\", result.len()));\n    result\n}\n"
+    },
+    {
+      "id": "collections::get_top_words",
+      "label": "Get Top Words",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 126,
+      "source": "fn get_top_words(\n    counter: &WordCounter,\n    n: usize,\n    stats: &mut CollectionStats,\n) -> Vec<(String, usize)> {\n    counter.emit_snapshot(&format!(\"finding top {} words\", n));\n    let mut pairs: Vec<_> = counter\n        .counts\n        .iter()\n        .map(|(k, &v)| (k.clone(), v))\n        .collect();\n    pairs.sort_by(|a, b| b.1.cmp(&a.1));\n    let top: Vec<_> = pairs.into_iter().take(n).collect();\n    stats.items_after = top.len();\n    counter.emit_snapshot(&format!(\"top {}: {:?}\", n, top));\n    top\n}\n"
+    },
+    {
+      "id": "collections::process_tasks",
+      "label": "Process Tasks",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 257,
+      "source": "fn process_tasks(\n    queue: &mut TaskQueue,\n    max_tasks: usize,\n    stats: &mut CollectionStats,\n) -> Vec<String> {\n    stats.items_before = queue.queue.len();\n    queue.emit_snapshot(&format!(\"processing up to {} tasks\", max_tasks));\n    let mut processed = Vec::new();\n    while processed.len() < max_tasks && !queue.queue.is_empty() {\n        if let Some(task) = queue.queue.pop_front() {\n            queue.processed_count += 1;\n            processed.push(task);\n            stats.items_removed += 1;\n        }\n    }\n    stats.items_after = queue.queue.len();\n    queue\n        .emit_snapshot(\n            &format!(\"processed {}, {} remaining\", processed.len(), queue.queue.len()),\n        );\n    processed\n}\n"
+    },
+    {
+      "id": "collections::run_examples",
+      "label": "Run Collections Examples",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 280,
+      "source": "fn run_examples() {\n    println!(\"--- Vec Operations ---\");\n    let mut vec_state = VecState {\n        elements: Vec::new(),\n        capacity: 0,\n        operations_count: 0,\n    };\n    let mut vec_stats = CollectionStats::new(\"vec_ops\");\n    vec_push_many(&mut vec_state, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], &mut vec_stats);\n    println!(\"After push: {:?}\", vec_state.elements);\n    vec_filter_in_place(&mut vec_state, |&x| x % 2 == 0, &mut vec_stats);\n    println!(\"After filter (evens): {:?}\", vec_state.elements);\n    vec_transform(&mut vec_state, |x| x * x, &mut vec_stats);\n    println!(\"After transform (squared): {:?}\", vec_state.elements);\n    println!(\"\\n--- HashMap Operations ---\");\n    let mut counter = WordCounter {\n        counts: HashMap::new(),\n        total_words: 0,\n        unique_words: 0,\n    };\n    let mut word_stats = CollectionStats::new(\"word_count\");\n    let text = \"The quick brown fox jumps over the lazy dog. The dog was not amused.\";\n    count_words(text, &mut counter, &mut word_stats);\n    let top = get_top_words(&counter, 5, &mut word_stats);\n    println!(\"Top words: {:?}\", top);\n    println!(\"\\n--- HashSet Operations ---\");\n    let mut set_state = SetState {\n        set_a: [1, 2, 3, 4, 5].into_iter().collect(),\n        set_b: [4, 5, 6, 7, 8].into_iter().collect(),\n        result: HashSet::new(),\n    };\n    let mut union_stats = CollectionStats::new(\"union\");\n    set_union(&mut set_state, &mut union_stats);\n    println!(\"Union: {:?}\", set_state.result);\n    let mut intersect_stats = CollectionStats::new(\"intersection\");\n    set_intersection(&mut set_state, &mut intersect_stats);\n    println!(\"Intersection: {:?}\", set_state.result);\n    let mut diff_stats = CollectionStats::new(\"difference\");\n    set_difference(&mut set_state, &mut diff_stats);\n    println!(\"Difference (A-B): {:?}\", set_state.result);\n    println!(\"\\n--- BTreeMap Operations ---\");\n    let mut scores = SortedScores {\n        scores: BTreeMap::new(),\n        min_score: None,\n        max_score: None,\n    };\n    let mut score_stats = CollectionStats::new(\"scores\");\n    add_scores(\n        &mut scores,\n        &[(\"Alice\", 95), (\"Bob\", 87), (\"Charlie\", 92), (\"Diana\", 78), (\"Eve\", 88)],\n        &mut score_stats,\n    );\n    let high_scorers = get_score_range(&scores, 85, 100, &mut score_stats);\n    println!(\"High scorers (85-100): {:?}\", high_scorers);\n    println!(\"\\n--- VecDeque Operations ---\");\n    let mut queue = TaskQueue {\n        queue: VecDeque::new(),\n        processed_count: 0,\n        high_priority_count: 0,\n    };\n    let mut queue_stats = CollectionStats::new(\"queue\");\n    add_task(&mut queue, \"Normal task 1\", false, &mut queue_stats);\n    add_task(&mut queue, \"Normal task 2\", false, &mut queue_stats);\n    add_task(&mut queue, \"URGENT: Fix bug\", true, &mut queue_stats);\n    add_task(&mut queue, \"Normal task 3\", false, &mut queue_stats);\n    add_task(&mut queue, \"URGENT: Deploy\", true, &mut queue_stats);\n    println!(\"Queue: {:?}\", queue.queue);\n    let processed = process_tasks(&mut queue, 3, &mut queue_stats);\n    println!(\"Processed: {:?}\", processed);\n    println!(\"Remaining: {:?}\", queue.queue);\n}\n"
+    },
+    {
+      "id": "collections::set_difference",
+      "label": "Set Difference",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 175,
+      "source": "fn set_difference(state: &mut SetState, stats: &mut CollectionStats) {\n    stats.items_before = state.set_a.len();\n    state.emit_snapshot(\"computing A - B\");\n    state.result = state.set_a.difference(&state.set_b).cloned().collect();\n    stats.items_after = state.result.len();\n    state.emit_snapshot(&format!(\"difference has {} elements\", state.result.len()));\n}\n"
+    },
+    {
+      "id": "collections::set_intersection",
+      "label": "Set Intersection",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 164,
+      "source": "fn set_intersection(state: &mut SetState, stats: &mut CollectionStats) {\n    stats.items_before = state.set_a.len() + state.set_b.len();\n    state.emit_snapshot(\"computing intersection\");\n    state.result = state.set_a.intersection(&state.set_b).cloned().collect();\n    stats.items_after = state.result.len();\n    state.emit_snapshot(&format!(\"intersection has {} elements\", state.result.len()));\n}\n"
+    },
+    {
+      "id": "collections::set_union",
+      "label": "Set Union",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 153,
+      "source": "fn set_union(state: &mut SetState, stats: &mut CollectionStats) {\n    stats.items_before = state.set_a.len() + state.set_b.len();\n    state\n        .emit_snapshot(\n            &format!(\"union of {} and {} elements\", state.set_a.len(), state.set_b.len()),\n        );\n    state.result = state.set_a.union(&state.set_b).cloned().collect();\n    stats.items_after = state.result.len();\n    state.emit_snapshot(&format!(\"union has {} elements\", state.result.len()));\n}\n"
+    },
+    {
+      "id": "collections::vec_filter_in_place",
+      "label": "Vec Filter",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 62,
+      "source": "fn vec_filter_in_place(\n    state: &mut VecState,\n    predicate: impl Fn(&i32) -> bool,\n    stats: &mut CollectionStats,\n) {\n    stats.items_before = state.elements.len();\n    state.emit_snapshot(\"filtering elements\");\n    state\n        .elements\n        .retain(|x| {\n            let keep = predicate(x);\n            if !keep {\n                stats.items_removed += 1;\n            }\n            keep\n        });\n    state.operations_count += 1;\n    stats.items_after = state.elements.len();\n    state.emit_snapshot(&format!(\"filtered to {} items\", state.elements.len()));\n}\n"
+    },
+    {
+      "id": "collections::vec_push_many",
+      "label": "Vec Push",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 46,
+      "source": "fn vec_push_many(state: &mut VecState, values: &[i32], stats: &mut CollectionStats) {\n    stats.items_before = state.elements.len();\n    state.emit_snapshot(&format!(\"pushing {} items\", values.len()));\n    for &value in values {\n        state.elements.push(value);\n        state.operations_count += 1;\n        stats.items_added += 1;\n    }\n    state.capacity = state.elements.capacity();\n    stats.items_after = state.elements.len();\n    state\n        .emit_snapshot(\n            &format!(\n                \"vec now has {} items, capacity {}\", state.elements.len(), state.capacity\n            ),\n        );\n}\n"
+    },
+    {
+      "id": "collections::vec_transform",
+      "label": "Vec Transform",
+      "kind": "function",
+      "module_path": "collections",
+      "file": "examples/collections.rs",
+      "line": 80,
+      "source": "fn vec_transform(\n    state: &mut VecState,\n    transform: impl Fn(i32) -> i32,\n    stats: &mut CollectionStats,\n) {\n    stats.items_before = state.elements.len();\n    state.emit_snapshot(\"transforming elements\");\n    state.elements = state.elements.iter().map(|&x| transform(x)).collect();\n    state.operations_count += 1;\n    stats.items_after = state.elements.len();\n    state.emit_snapshot(&format!(\"transformed {} items\", state.elements.len()));\n}\n"
+    }
+  ],
+  "edges": [
+    {
+      "from": "collections::add_scores",
+      "to": "collections::SortedScores",
+      "kind": "data_flow",
+      "label": "now 5 scores, range Some(78)..Some(95)"
+    },
+    {
+      "from": "collections::add_task",
+      "to": "collections::TaskQueue",
+      "kind": "data_flow",
+      "label": "queue size: 5"
+    },
+    {
+      "from": "collections::count_words",
+      "to": "collections::WordCounter",
+      "kind": "data_flow",
+      "label": "14 total, 11 unique"
+    },
+    {
+      "from": "collections::get_score_range",
+      "to": "collections::SortedScores",
+      "kind": "data_flow",
+      "label": "found 4 scores in range"
+    },
+    {
+      "from": "collections::get_top_words",
+      "to": "collections::WordCounter",
+      "kind": "data_flow",
+      "label": "top 5: [(\"the\", 3), (\"dog\", 2), (\"quick\", 1), (\"over\", 1), (\"was\", 1)]"
+    },
+    {
+      "from": "collections::process_tasks",
+      "to": "collections::TaskQueue",
+      "kind": "data_flow",
+      "label": "processed 3, 2 remaining"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::add_scores",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::add_task",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::count_words",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::get_score_range",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::get_top_words",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::process_tasks",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::set_difference",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::set_intersection",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::set_union",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::vec_filter_in_place",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::vec_push_many",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::run_examples",
+      "to": "collections::vec_transform",
+      "kind": "control_flow"
+    },
+    {
+      "from": "collections::set_difference",
+      "to": "collections::SetState",
+      "kind": "data_flow",
+      "label": "difference has 3 elements"
+    },
+    {
+      "from": "collections::set_intersection",
+      "to": "collections::SetState",
+      "kind": "data_flow",
+      "label": "intersection has 2 elements"
+    },
+    {
+      "from": "collections::set_union",
+      "to": "collections::SetState",
+      "kind": "data_flow",
+      "label": "union has 8 elements"
+    },
+    {
+      "from": "collections::vec_filter_in_place",
+      "to": "collections::VecState",
+      "kind": "data_flow",
+      "label": "filtered to 5 items"
+    },
+    {
+      "from": "collections::vec_push_many",
+      "to": "collections::VecState",
+      "kind": "data_flow",
+      "label": "vec now has 10 items, capacity 16"
+    },
+    {
+      "from": "collections::vec_transform",
+      "to": "collections::VecState",
+      "kind": "data_flow",
+      "label": "transformed 5 items"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "collections::run_examples",
+      "kind": "function_enter",
+      "title": "enter Run Collections Examples",
+      "values": []
+    },
+    {
+      "seq": 2,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "collections::vec_push_many",
+      "kind": "function_enter",
+      "title": "enter Vec Push",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut collections::VecState"
+        },
+        {
+          "name": "values",
+          "preview": "type &[i32]"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "collections::VecState",
+      "kind": "value_snapshot",
+      "title": "pushing 10 items",
+      "values": [
+        {
+          "name": "Vec State",
+          "preview": "VecState {\n    elements: [],\n    capacity: 0,\n    operations_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "collections::VecState",
+      "kind": "value_snapshot",
+      "title": "vec now has 10 items, capacity 16",
+      "values": [
+        {
+          "name": "Vec State",
+          "preview": "VecState {\n    elements: [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8,\n        9,\n        10,\n    ],\n    capacity: 16,\n    operations_count: 10,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "collections::vec_push_many",
+      "kind": "function_exit",
+      "title": "return vec_push_many",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "collections::vec_filter_in_place",
+      "kind": "function_enter",
+      "title": "enter Vec Filter",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut collections::VecState"
+        },
+        {
+          "name": "predicate",
+          "preview": "type collections::run_examples::{{closure}}"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "collections::VecState",
+      "kind": "value_snapshot",
+      "title": "filtering elements",
+      "values": [
+        {
+          "name": "Vec State",
+          "preview": "VecState {\n    elements: [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8,\n        9,\n        10,\n    ],\n    capacity: 16,\n    operations_count: 10,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "collections::VecState",
+      "kind": "value_snapshot",
+      "title": "filtered to 5 items",
+      "values": [
+        {
+          "name": "Vec State",
+          "preview": "VecState {\n    elements: [\n        2,\n        4,\n        6,\n        8,\n        10,\n    ],\n    capacity: 16,\n    operations_count: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "call_id": 3,
+      "parent_call_id": 1,
+      "node_id": "collections::vec_filter_in_place",
+      "kind": "function_exit",
+      "title": "return vec_filter_in_place",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "collections::vec_transform",
+      "kind": "function_enter",
+      "title": "enter Vec Transform",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut collections::VecState"
+        },
+        {
+          "name": "transform",
+          "preview": "type collections::run_examples::{{closure}}"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "collections::VecState",
+      "kind": "value_snapshot",
+      "title": "transforming elements",
+      "values": [
+        {
+          "name": "Vec State",
+          "preview": "VecState {\n    elements: [\n        2,\n        4,\n        6,\n        8,\n        10,\n    ],\n    capacity: 16,\n    operations_count: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "collections::VecState",
+      "kind": "value_snapshot",
+      "title": "transformed 5 items",
+      "values": [
+        {
+          "name": "Vec State",
+          "preview": "VecState {\n    elements: [\n        4,\n        16,\n        36,\n        64,\n        100,\n    ],\n    capacity: 16,\n    operations_count: 12,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "collections::vec_transform",
+      "kind": "function_exit",
+      "title": "return vec_transform",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "collections::count_words",
+      "kind": "function_enter",
+      "title": "enter Count Words",
+      "values": [
+        {
+          "name": "text",
+          "preview": "type &str"
+        },
+        {
+          "name": "counter",
+          "preview": "type &mut collections::WordCounter"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "collections::WordCounter",
+      "kind": "value_snapshot",
+      "title": "starting word count",
+      "values": [
+        {
+          "name": "Word Counter",
+          "preview": "WordCounter {\n    counts: {},\n    total_words: 0,\n    unique_words: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 16,
+      "call_id": 5,
+      "parent_call_id": null,
+      "node_id": "collections::WordCounter",
+      "kind": "value_snapshot",
+      "title": "14 total, 11 unique",
+      "values": [
+        {
+          "name": "Word Counter",
+          "preview": "WordCounter {\n    counts: {\n        \"quick\": 1,\n        \"over\": 1,\n        \"was\": 1,\n        \"fox\": 1,\n        \"lazy\": 1,\n        \"amused\": 1,\n        \"jumps\": 1,\n        \"not\": 1,\n        \"the\": 3,\n        \"brown\": 1,\n        \"dog\": 2,\n    },\n    total_words: 14,\n    unique_words: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 17,
+      "call_id": 5,
+      "parent_call_id": 1,
+      "node_id": "collections::count_words",
+      "kind": "function_exit",
+      "title": "return count_words",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 18,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "collections::get_top_words",
+      "kind": "function_enter",
+      "title": "enter Get Top Words",
+      "values": [
+        {
+          "name": "counter",
+          "preview": "type &collections::WordCounter"
+        },
+        {
+          "name": "n",
+          "preview": "type usize"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 19,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "collections::WordCounter",
+      "kind": "value_snapshot",
+      "title": "finding top 5 words",
+      "values": [
+        {
+          "name": "Word Counter",
+          "preview": "WordCounter {\n    counts: {\n        \"quick\": 1,\n        \"over\": 1,\n        \"was\": 1,\n        \"fox\": 1,\n        \"lazy\": 1,\n        \"amused\": 1,\n        \"jumps\": 1,\n        \"not\": 1,\n        \"the\": 3,\n        \"brown\": 1,\n        \"dog\": 2,\n    },\n    total_words: 14,\n    unique_words: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 20,
+      "call_id": 6,
+      "parent_call_id": null,
+      "node_id": "collections::WordCounter",
+      "kind": "value_snapshot",
+      "title": "top 5: [(\"the\", 3), (\"dog\", 2), (\"quick\", 1), (\"over\", 1), (\"was\", 1)]",
+      "values": [
+        {
+          "name": "Word Counter",
+          "preview": "WordCounter {\n    counts: {\n        \"quick\": 1,\n        \"over\": 1,\n        \"was\": 1,\n        \"fox\": 1,\n        \"lazy\": 1,\n        \"amused\": 1,\n        \"jumps\": 1,\n        \"not\": 1,\n        \"the\": 3,\n        \"brown\": 1,\n        \"dog\": 2,\n    },\n    total_words: 14,\n    unique_words: 11,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 21,
+      "call_id": 6,
+      "parent_call_id": 1,
+      "node_id": "collections::get_top_words",
+      "kind": "function_exit",
+      "title": "return get_top_words",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::vec::Vec<(alloc::string::String, usize)>"
+        }
+      ]
+    },
+    {
+      "seq": 22,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "collections::set_union",
+      "kind": "function_enter",
+      "title": "enter Set Union",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut collections::SetState"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 23,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "collections::SetState",
+      "kind": "value_snapshot",
+      "title": "union of 5 and 5 elements",
+      "values": [
+        {
+          "name": "Set Operations",
+          "preview": "SetState {\n    set_a: {\n        2,\n        1,\n        4,\n        5,\n        3,\n    },\n    set_b: {\n        4,\n        7,\n        8,\n        5,\n        6,\n    },\n    result: {},\n}"
+        }
+      ]
+    },
+    {
+      "seq": 24,
+      "call_id": 7,
+      "parent_call_id": null,
+      "node_id": "collections::SetState",
+      "kind": "value_snapshot",
+      "title": "union has 8 elements",
+      "values": [
+        {
+          "name": "Set Operations",
+          "preview": "SetState {\n    set_a: {\n        2,\n        1,\n        4,\n        5,\n        3,\n    },\n    set_b: {\n        4,\n        7,\n        8,\n        5,\n        6,\n    },\n    result: {\n        6,\n        1,\n        8,\n        4,\n        3,\n        5,\n        7,\n        2,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 25,
+      "call_id": 7,
+      "parent_call_id": 1,
+      "node_id": "collections::set_union",
+      "kind": "function_exit",
+      "title": "return set_union",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 26,
+      "call_id": 8,
+      "parent_call_id": 1,
+      "node_id": "collections::set_intersection",
+      "kind": "function_enter",
+      "title": "enter Set Intersection",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut collections::SetState"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 27,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "collections::SetState",
+      "kind": "value_snapshot",
+      "title": "computing intersection",
+      "values": [
+        {
+          "name": "Set Operations",
+          "preview": "SetState {\n    set_a: {\n        2,\n        1,\n        4,\n        5,\n        3,\n    },\n    set_b: {\n        4,\n        7,\n        8,\n        5,\n        6,\n    },\n    result: {\n        6,\n        1,\n        8,\n        4,\n        3,\n        5,\n        7,\n        2,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 28,
+      "call_id": 8,
+      "parent_call_id": null,
+      "node_id": "collections::SetState",
+      "kind": "value_snapshot",
+      "title": "intersection has 2 elements",
+      "values": [
+        {
+          "name": "Set Operations",
+          "preview": "SetState {\n    set_a: {\n        2,\n        1,\n        4,\n        5,\n        3,\n    },\n    set_b: {\n        4,\n        7,\n        8,\n        5,\n        6,\n    },\n    result: {\n        4,\n        5,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "call_id": 8,
+      "parent_call_id": 1,
+      "node_id": "collections::set_intersection",
+      "kind": "function_exit",
+      "title": "return set_intersection",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "call_id": 9,
+      "parent_call_id": 1,
+      "node_id": "collections::set_difference",
+      "kind": "function_enter",
+      "title": "enter Set Difference",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut collections::SetState"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 31,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "collections::SetState",
+      "kind": "value_snapshot",
+      "title": "computing A - B",
+      "values": [
+        {
+          "name": "Set Operations",
+          "preview": "SetState {\n    set_a: {\n        2,\n        1,\n        4,\n        5,\n        3,\n    },\n    set_b: {\n        4,\n        7,\n        8,\n        5,\n        6,\n    },\n    result: {\n        4,\n        5,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 32,
+      "call_id": 9,
+      "parent_call_id": null,
+      "node_id": "collections::SetState",
+      "kind": "value_snapshot",
+      "title": "difference has 3 elements",
+      "values": [
+        {
+          "name": "Set Operations",
+          "preview": "SetState {\n    set_a: {\n        2,\n        1,\n        4,\n        5,\n        3,\n    },\n    set_b: {\n        4,\n        7,\n        8,\n        5,\n        6,\n    },\n    result: {\n        2,\n        1,\n        3,\n    },\n}"
+        }
+      ]
+    },
+    {
+      "seq": 33,
+      "call_id": 9,
+      "parent_call_id": 1,
+      "node_id": "collections::set_difference",
+      "kind": "function_exit",
+      "title": "return set_difference",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 34,
+      "call_id": 10,
+      "parent_call_id": 1,
+      "node_id": "collections::add_scores",
+      "kind": "function_enter",
+      "title": "enter Add Scores",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut collections::SortedScores"
+        },
+        {
+          "name": "entries",
+          "preview": "type &[(&str, i32)]"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 35,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "collections::SortedScores",
+      "kind": "value_snapshot",
+      "title": "adding 5 scores",
+      "values": [
+        {
+          "name": "Sorted Scores",
+          "preview": "SortedScores {\n    scores: {},\n    min_score: None,\n    max_score: None,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 36,
+      "call_id": 10,
+      "parent_call_id": null,
+      "node_id": "collections::SortedScores",
+      "kind": "value_snapshot",
+      "title": "now 5 scores, range Some(78)..Some(95)",
+      "values": [
+        {
+          "name": "Sorted Scores",
+          "preview": "SortedScores {\n    scores: {\n        \"Alice\": 95,\n        \"Bob\": 87,\n        \"Charlie\": 92,\n        \"Diana\": 78,\n        \"Eve\": 88,\n    },\n    min_score: Some(\n        78,\n    ),\n    max_score: Some(\n        95,\n    ),\n}"
+        }
+      ]
+    },
+    {
+      "seq": 37,
+      "call_id": 10,
+      "parent_call_id": 1,
+      "node_id": "collections::add_scores",
+      "kind": "function_exit",
+      "title": "return add_scores",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 38,
+      "call_id": 11,
+      "parent_call_id": 1,
+      "node_id": "collections::get_score_range",
+      "kind": "function_enter",
+      "title": "enter Get Score Range",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &collections::SortedScores"
+        },
+        {
+          "name": "min",
+          "preview": "type i32"
+        },
+        {
+          "name": "max",
+          "preview": "type i32"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 39,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "collections::SortedScores",
+      "kind": "value_snapshot",
+      "title": "finding scores in range 85..=100",
+      "values": [
+        {
+          "name": "Sorted Scores",
+          "preview": "SortedScores {\n    scores: {\n        \"Alice\": 95,\n        \"Bob\": 87,\n        \"Charlie\": 92,\n        \"Diana\": 78,\n        \"Eve\": 88,\n    },\n    min_score: Some(\n        78,\n    ),\n    max_score: Some(\n        95,\n    ),\n}"
+        }
+      ]
+    },
+    {
+      "seq": 40,
+      "call_id": 11,
+      "parent_call_id": null,
+      "node_id": "collections::SortedScores",
+      "kind": "value_snapshot",
+      "title": "found 4 scores in range",
+      "values": [
+        {
+          "name": "Sorted Scores",
+          "preview": "SortedScores {\n    scores: {\n        \"Alice\": 95,\n        \"Bob\": 87,\n        \"Charlie\": 92,\n        \"Diana\": 78,\n        \"Eve\": 88,\n    },\n    min_score: Some(\n        78,\n    ),\n    max_score: Some(\n        95,\n    ),\n}"
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "call_id": 11,
+      "parent_call_id": 1,
+      "node_id": "collections::get_score_range",
+      "kind": "function_exit",
+      "title": "return get_score_range",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::vec::Vec<(alloc::string::String, i32)>"
+        }
+      ]
+    },
+    {
+      "seq": 42,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_enter",
+      "title": "enter Add Task",
+      "values": [
+        {
+          "name": "queue",
+          "preview": "type &mut collections::TaskQueue"
+        },
+        {
+          "name": "task",
+          "preview": "type &str"
+        },
+        {
+          "name": "high_priority",
+          "preview": "type bool"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 43,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "adding task: Normal task 1 (priority: normal)",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [],\n    processed_count: 0,\n    high_priority_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 44,
+      "call_id": 12,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "queue size: 1",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"Normal task 1\",\n    ],\n    processed_count: 0,\n    high_priority_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 45,
+      "call_id": 12,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_exit",
+      "title": "return add_task",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "call_id": 13,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_enter",
+      "title": "enter Add Task",
+      "values": [
+        {
+          "name": "queue",
+          "preview": "type &mut collections::TaskQueue"
+        },
+        {
+          "name": "task",
+          "preview": "type &str"
+        },
+        {
+          "name": "high_priority",
+          "preview": "type bool"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 47,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "adding task: Normal task 2 (priority: normal)",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"Normal task 1\",\n    ],\n    processed_count: 0,\n    high_priority_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "call_id": 13,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "queue size: 2",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"Normal task 1\",\n        \"Normal task 2\",\n    ],\n    processed_count: 0,\n    high_priority_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 49,
+      "call_id": 13,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_exit",
+      "title": "return add_task",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 50,
+      "call_id": 14,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_enter",
+      "title": "enter Add Task",
+      "values": [
+        {
+          "name": "queue",
+          "preview": "type &mut collections::TaskQueue"
+        },
+        {
+          "name": "task",
+          "preview": "type &str"
+        },
+        {
+          "name": "high_priority",
+          "preview": "type bool"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 51,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "adding task: URGENT: Fix bug (priority: high)",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"Normal task 1\",\n        \"Normal task 2\",\n    ],\n    processed_count: 0,\n    high_priority_count: 0,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 52,
+      "call_id": 14,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "queue size: 3",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"URGENT: Fix bug\",\n        \"Normal task 1\",\n        \"Normal task 2\",\n    ],\n    processed_count: 0,\n    high_priority_count: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 53,
+      "call_id": 14,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_exit",
+      "title": "return add_task",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 54,
+      "call_id": 15,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_enter",
+      "title": "enter Add Task",
+      "values": [
+        {
+          "name": "queue",
+          "preview": "type &mut collections::TaskQueue"
+        },
+        {
+          "name": "task",
+          "preview": "type &str"
+        },
+        {
+          "name": "high_priority",
+          "preview": "type bool"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 55,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "adding task: Normal task 3 (priority: normal)",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"URGENT: Fix bug\",\n        \"Normal task 1\",\n        \"Normal task 2\",\n    ],\n    processed_count: 0,\n    high_priority_count: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 56,
+      "call_id": 15,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "queue size: 4",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"URGENT: Fix bug\",\n        \"Normal task 1\",\n        \"Normal task 2\",\n        \"Normal task 3\",\n    ],\n    processed_count: 0,\n    high_priority_count: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 57,
+      "call_id": 15,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_exit",
+      "title": "return add_task",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 58,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_enter",
+      "title": "enter Add Task",
+      "values": [
+        {
+          "name": "queue",
+          "preview": "type &mut collections::TaskQueue"
+        },
+        {
+          "name": "task",
+          "preview": "type &str"
+        },
+        {
+          "name": "high_priority",
+          "preview": "type bool"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "adding task: URGENT: Deploy (priority: high)",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"URGENT: Fix bug\",\n        \"Normal task 1\",\n        \"Normal task 2\",\n        \"Normal task 3\",\n    ],\n    processed_count: 0,\n    high_priority_count: 1,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 60,
+      "call_id": 16,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "queue size: 5",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"URGENT: Deploy\",\n        \"URGENT: Fix bug\",\n        \"Normal task 1\",\n        \"Normal task 2\",\n        \"Normal task 3\",\n    ],\n    processed_count: 0,\n    high_priority_count: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 61,
+      "call_id": 16,
+      "parent_call_id": 1,
+      "node_id": "collections::add_task",
+      "kind": "function_exit",
+      "title": "return add_task",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    },
+    {
+      "seq": 62,
+      "call_id": 17,
+      "parent_call_id": 1,
+      "node_id": "collections::process_tasks",
+      "kind": "function_enter",
+      "title": "enter Process Tasks",
+      "values": [
+        {
+          "name": "queue",
+          "preview": "type &mut collections::TaskQueue"
+        },
+        {
+          "name": "max_tasks",
+          "preview": "type usize"
+        },
+        {
+          "name": "stats",
+          "preview": "type &mut collections::CollectionStats"
+        }
+      ]
+    },
+    {
+      "seq": 63,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "processing up to 3 tasks",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"URGENT: Deploy\",\n        \"URGENT: Fix bug\",\n        \"Normal task 1\",\n        \"Normal task 2\",\n        \"Normal task 3\",\n    ],\n    processed_count: 0,\n    high_priority_count: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 64,
+      "call_id": 17,
+      "parent_call_id": null,
+      "node_id": "collections::TaskQueue",
+      "kind": "value_snapshot",
+      "title": "processed 3, 2 remaining",
+      "values": [
+        {
+          "name": "Task Queue",
+          "preview": "TaskQueue {\n    queue: [\n        \"Normal task 2\",\n        \"Normal task 3\",\n    ],\n    processed_count: 3,\n    high_priority_count: 2,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 65,
+      "call_id": 17,
+      "parent_call_id": 1,
+      "node_id": "collections::process_tasks",
+      "kind": "function_exit",
+      "title": "return process_tasks",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type alloc::vec::Vec<alloc::string::String>"
+        }
+      ]
+    },
+    {
+      "seq": 66,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "collections::run_examples",
+      "kind": "function_exit",
+      "title": "return run_examples",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type ()"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,303 @@
+{
+  "title": "Network Request Pipeline",
+  "nodes": [
+    {
+      "id": "network_request::NetworkState",
+      "label": "Network State",
+      "kind": "type",
+      "module_path": "network_request",
+      "file": "examples/network_request.rs",
+      "line": 11,
+      "source": "struct NetworkState {\n    target_host: String,\n    attempts: usize,\n    max_attempts: usize,\n    last_response_time_ms: Option<u64>,\n    status: NetworkStatus,\n}\n"
+    },
+    {
+      "id": "network_request::http_check",
+      "label": "HTTP Check",
+      "kind": "function",
+      "module_path": "network_request",
+      "file": "examples/network_request.rs",
+      "line": 112,
+      "source": "fn http_check(state: &mut NetworkState) -> Option<u16> {\n    state.emit_snapshot(\"checking HTTP endpoint\");\n    let output = Command::new(\"curl\")\n        .args([\n            \"-s\",\n            \"-o\",\n            \"/dev/null\",\n            \"-w\",\n            \"%{http_code}\",\n            \"-m\",\n            \"5\",\n            &format!(\"https://{}\", state.target_host),\n        ])\n        .output();\n    match output {\n        Ok(result) => {\n            let code_str = String::from_utf8_lossy(&result.stdout);\n            let status_code = code_str.trim().parse::<u16>().ok();\n            state.emit_snapshot(&format!(\"HTTP status: {:?}\", status_code));\n            status_code\n        }\n        Err(e) => {\n            state.emit_snapshot(&format!(\"HTTP check failed: {}\", e));\n            None\n        }\n    }\n}\n"
+    },
+    {
+      "id": "network_request::ping_host",
+      "label": "Ping Host",
+      "kind": "function",
+      "module_path": "network_request",
+      "file": "examples/network_request.rs",
+      "line": 41,
+      "source": "fn ping_host(state: &mut NetworkState) -> bool {\n    state.status = NetworkStatus::Connecting;\n    state.emit_snapshot(\"initiating ping\");\n    let output = Command::new(\"ping\")\n        .args([\"-c\", \"1\", \"-t\", \"2\", &state.target_host])\n        .stdout(Stdio::piped())\n        .stderr(Stdio::piped())\n        .output();\n    match output {\n        Ok(result) if result.status.success() => {\n            let stdout = String::from_utf8_lossy(&result.stdout);\n            let time_ms = parse_ping_time(&stdout);\n            state.last_response_time_ms = time_ms;\n            state.status = NetworkStatus::Success;\n            state.emit_snapshot(\"ping successful\");\n            true\n        }\n        Ok(_) => {\n            state.status = NetworkStatus::Failed(\"Host unreachable\".to_owned());\n            state.emit_snapshot(\"ping failed\");\n            false\n        }\n        Err(e) => {\n            state.status = NetworkStatus::Failed(e.to_string());\n            state.emit_snapshot(\"ping error\");\n            false\n        }\n    }\n}\n"
+    },
+    {
+      "id": "network_request::retry_request",
+      "label": "Retry Network Request",
+      "kind": "function",
+      "module_path": "network_request",
+      "file": "examples/network_request.rs",
+      "line": 91,
+      "source": "fn retry_request(state: &mut NetworkState) -> bool {\n    while state.attempts < state.max_attempts {\n        state.attempts += 1;\n        state\n            .emit_snapshot(\n                &format!(\"attempt {}/{}\", state.attempts, state.max_attempts),\n            );\n        if ping_host(state) {\n            return true;\n        }\n        if state.attempts < state.max_attempts {\n            state.emit_snapshot(\"waiting before retry\");\n            std::thread::sleep(Duration::from_millis(100));\n        }\n    }\n    state.status = NetworkStatus::Timeout;\n    state.emit_snapshot(\"all attempts exhausted\");\n    false\n}\n"
+    },
+    {
+      "id": "network_request::run_diagnostics",
+      "label": "Network Diagnostics Pipeline",
+      "kind": "function",
+      "module_path": "network_request",
+      "file": "examples/network_request.rs",
+      "line": 144,
+      "source": "fn run_diagnostics(state: &mut NetworkState) -> DiagnosticResult {\n    state.emit_snapshot(\"starting network diagnostics\");\n    let ping_ok = retry_request(state);\n    let http_status = if ping_ok { http_check(state) } else { None };\n    let result = DiagnosticResult {\n        host: state.target_host.clone(),\n        ping_success: ping_ok,\n        ping_latency_ms: state.last_response_time_ms,\n        http_status_code: http_status,\n    };\n    state.emit_snapshot(\"diagnostics complete\");\n    result\n}\n"
+    }
+  ],
+  "edges": [
+    {
+      "from": "network_request::http_check",
+      "to": "network_request::NetworkState",
+      "kind": "data_flow",
+      "label": "HTTP status: Some(301)"
+    },
+    {
+      "from": "network_request::ping_host",
+      "to": "network_request::NetworkState",
+      "kind": "data_flow",
+      "label": "ping successful"
+    },
+    {
+      "from": "network_request::retry_request",
+      "to": "network_request::NetworkState",
+      "kind": "data_flow",
+      "label": "attempt 1/3"
+    },
+    {
+      "from": "network_request::retry_request",
+      "to": "network_request::ping_host",
+      "kind": "control_flow"
+    },
+    {
+      "from": "network_request::run_diagnostics",
+      "to": "network_request::NetworkState",
+      "kind": "data_flow",
+      "label": "diagnostics complete"
+    },
+    {
+      "from": "network_request::run_diagnostics",
+      "to": "network_request::http_check",
+      "kind": "control_flow"
+    },
+    {
+      "from": "network_request::run_diagnostics",
+      "to": "network_request::retry_request",
+      "kind": "control_flow"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "network_request::run_diagnostics",
+      "kind": "function_enter",
+      "title": "enter Network Diagnostics Pipeline",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut network_request::NetworkState"
+        }
+      ]
+    },
+    {
+      "seq": 2,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "network_request::NetworkState",
+      "kind": "value_snapshot",
+      "title": "starting network diagnostics",
+      "values": [
+        {
+          "name": "Network State",
+          "preview": "NetworkState {\n    target_host: \"google.com\",\n    attempts: 0,\n    max_attempts: 3,\n    last_response_time_ms: None,\n    status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "network_request::retry_request",
+      "kind": "function_enter",
+      "title": "enter Retry Network Request",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut network_request::NetworkState"
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "call_id": 2,
+      "parent_call_id": null,
+      "node_id": "network_request::NetworkState",
+      "kind": "value_snapshot",
+      "title": "attempt 1/3",
+      "values": [
+        {
+          "name": "Network State",
+          "preview": "NetworkState {\n    target_host: \"google.com\",\n    attempts: 1,\n    max_attempts: 3,\n    last_response_time_ms: None,\n    status: Pending,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "call_id": 3,
+      "parent_call_id": 2,
+      "node_id": "network_request::ping_host",
+      "kind": "function_enter",
+      "title": "enter Ping Host",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut network_request::NetworkState"
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "network_request::NetworkState",
+      "kind": "value_snapshot",
+      "title": "initiating ping",
+      "values": [
+        {
+          "name": "Network State",
+          "preview": "NetworkState {\n    target_host: \"google.com\",\n    attempts: 1,\n    max_attempts: 3,\n    last_response_time_ms: None,\n    status: Connecting,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "call_id": 3,
+      "parent_call_id": null,
+      "node_id": "network_request::NetworkState",
+      "kind": "value_snapshot",
+      "title": "ping successful",
+      "values": [
+        {
+          "name": "Network State",
+          "preview": "NetworkState {\n    target_host: \"google.com\",\n    attempts: 1,\n    max_attempts: 3,\n    last_response_time_ms: Some(\n        77,\n    ),\n    status: Success,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "call_id": 3,
+      "parent_call_id": 2,
+      "node_id": "network_request::ping_host",
+      "kind": "function_exit",
+      "title": "return ping_host",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type bool"
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "call_id": 2,
+      "parent_call_id": 1,
+      "node_id": "network_request::retry_request",
+      "kind": "function_exit",
+      "title": "panic retry_request",
+      "values": [
+        {
+          "name": "status",
+          "preview": "unwound before explicit return"
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "network_request::http_check",
+      "kind": "function_enter",
+      "title": "enter HTTP Check",
+      "values": [
+        {
+          "name": "state",
+          "preview": "type &mut network_request::NetworkState"
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "network_request::NetworkState",
+      "kind": "value_snapshot",
+      "title": "checking HTTP endpoint",
+      "values": [
+        {
+          "name": "Network State",
+          "preview": "NetworkState {\n    target_host: \"google.com\",\n    attempts: 1,\n    max_attempts: 3,\n    last_response_time_ms: Some(\n        77,\n    ),\n    status: Success,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "call_id": 4,
+      "parent_call_id": null,
+      "node_id": "network_request::NetworkState",
+      "kind": "value_snapshot",
+      "title": "HTTP status: Some(301)",
+      "values": [
+        {
+          "name": "Network State",
+          "preview": "NetworkState {\n    target_host: \"google.com\",\n    attempts: 1,\n    max_attempts: 3,\n    last_response_time_ms: Some(\n        77,\n    ),\n    status: Success,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "call_id": 4,
+      "parent_call_id": 1,
+      "node_id": "network_request::http_check",
+      "kind": "function_exit",
+      "title": "return http_check",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type core::option::Option<u16>"
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "network_request::NetworkState",
+      "kind": "value_snapshot",
+      "title": "diagnostics complete",
+      "values": [
+        {
+          "name": "Network State",
+          "preview": "NetworkState {\n    target_host: \"google.com\",\n    attempts: 1,\n    max_attempts: 3,\n    last_response_time_ms: Some(\n        77,\n    ),\n    status: Success,\n}"
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "call_id": 1,
+      "parent_call_id": null,
+      "node_id": "network_request::run_diagnostics",
+      "kind": "function_exit",
+      "title": "return run_diagnostics",
+      "values": [
+        {
+          "name": "result",
+          "preview": "type network_request::DiagnosticResult"
+        }
+      ]
+    }
+  ]
+}
