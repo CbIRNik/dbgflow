@@ -18,14 +18,26 @@ import NodeDetailsPanel from "./components/NodeDetailsPanel"
 import PlaybackControls from "./components/PlaybackControls"
 import WorkflowCanvas from "./components/WorkflowCanvas"
 import WorkflowEmptyState from "./components/WorkflowEmptyState"
-import { buildGraphModel, buildNodeData } from "./utils/graphUtils.js"
+import {
+  buildCanvasNodeData,
+  buildGraphModel,
+  buildNodeData,
+} from "./utils/graphUtils.js"
 import { shortenPreview } from "./utils/formatUtils.js"
 
 const RUN_ROUTE_PREFIX = "#/pipelines/"
-const DEFAULT_PANEL_WIDTH = 420
-const MIN_PANEL_WIDTH = 320
-const MAX_PANEL_WIDTH = 680
+const DEFAULT_PANEL_WIDTH = 500
+const MIN_PANEL_WIDTH = 400
+const PANEL_MAX_WIDTH_RATIO = 0.7
 const DEFAULT_CANVAS_MODE = "pan-canvas"
+
+function getMaxPanelWidth(viewportWidth) {
+  return Math.max(MIN_PANEL_WIDTH + 120, Math.floor(viewportWidth * PANEL_MAX_WIDTH_RATIO))
+}
+
+function clampPanelWidth(width, viewportWidth) {
+  return Math.max(MIN_PANEL_WIDTH, Math.min(getMaxPanelWidth(viewportWidth), width))
+}
 
 function readRunRouteId() {
   if (typeof window === "undefined") {
@@ -52,7 +64,8 @@ function buildRunRoute(runId) {
 
 function App() {
   const { session, serverStatus, error, setServerStatus } = useSession()
-  const { getPipelineState, setPipelineState } = usePipelineStore()
+  const getPipelineState = usePipelineStore((state) => state.getPipelineState)
+  const setPipelineState = usePipelineStore((state) => state.setPipelineState)
   const [routeRunId, setRouteRunId] = useState(() => readRunRouteId())
   const [selectedNodeId, setSelectedNodeId] = useState("")
   const [detailsNodeId, setDetailsNodeId] = useState("")
@@ -60,9 +73,12 @@ function App() {
   const [detailsPanelWidth, setDetailsPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
   const [canvasMode, setCanvasMode] = useState(DEFAULT_CANVAS_MODE)
   const [savedNodePositions, setSavedNodePositions] = useState(null)
-  const [savedNodePositionsPipelineId, setSavedNodePositionsPipelineId] = useState("")
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1440 : window.innerWidth,
+  )
   const chainRuns = useMemo(() => deriveChainRuns(session), [session])
   const isRestoringState = useRef(false)
+  const maxPanelWidth = useMemo(() => getMaxPanelWidth(viewportWidth), [viewportWidth])
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -72,10 +88,15 @@ function App() {
     const syncRouteRunId = () => {
       setRouteRunId(readRunRouteId())
     }
+    const syncViewportWidth = () => {
+      setViewportWidth(window.innerWidth)
+    }
 
     window.addEventListener("hashchange", syncRouteRunId)
+    window.addEventListener("resize", syncViewportWidth)
     return () => {
       window.removeEventListener("hashchange", syncRouteRunId)
+      window.removeEventListener("resize", syncViewportWidth)
     }
   }, [])
 
@@ -156,7 +177,6 @@ function App() {
     activeStepLabel,
     effectivePlaybackIndex,
     graphModel,
-    handoff,
     stepOptions,
   } = useWorkflowModel({
     fullGraphModel,
@@ -239,107 +259,41 @@ function App() {
     [triggerRun],
   )
 
-  const buildNodeDataCallback = useCallback(
+  const buildCanvasNodeDataCallback = useCallback(
     (
       currentGraphModel,
       currentRun,
       nodeId,
       currentSelectedNodeId,
-      detailsNodeId,
       currentPlaybackNodeId,
-      currentIsPlaying,
       onRunChain,
       onOpenDetails,
     ) =>
-      buildNodeData(
+      buildCanvasNodeData(
         currentGraphModel,
         currentRun,
         nodeId,
         currentSelectedNodeId,
-        detailsNodeId,
         currentPlaybackNodeId,
-        currentIsPlaying,
         onRunChain,
         onOpenDetails,
         NODE_DIMENSIONS,
-        shortenPreview,
       ),
     [],
   )
 
-  const activeSavedNodePositions = useMemo(() => {
-    if (!selectedRun) {
-      return null
-    }
-
-    if (savedNodePositionsPipelineId === selectedRun.id) {
-      return savedNodePositions
-    }
-
-    return getPipelineState(selectedRun.id).nodePositions ?? null
-  }, [getPipelineState, savedNodePositions, savedNodePositionsPipelineId, selectedRun])
-
-  const { nodes, edges, onNodesChange, setNodes } = useGraphLayout({
+  const { nodes, edges, nodePositionSnapshot, onNodesChange } = useGraphLayout({
     graphModel,
     selectedRun,
     selectedNodeId,
-    detailsNodeId: isDetailsOpen ? detailsNodeId : "",
     canvasMode,
     activePlaybackNodeId,
     activeEdgeIds,
-    handoff,
-    isPlaying,
     onRunChain: runChainFromNode,
     onOpenDetails: handleOpenDetails,
-    buildNodeData: buildNodeDataCallback,
-    savedNodePositions: activeSavedNodePositions,
+    buildNodeData: buildCanvasNodeDataCallback,
+    savedNodePositions,
   })
-
-  const persistedNodePositions = useMemo(() => {
-    if (!nodes.length) {
-      return null
-    }
-
-    return Object.fromEntries(
-      nodes.map((node) => [
-        node.id,
-        {
-          x: Number(node.position.x.toFixed(2)),
-          y: Number(node.position.y.toFixed(2)),
-        },
-      ]),
-    )
-  }, [nodes])
-
-  const handleNodeDragStop = useCallback((draggedNode) => {
-    const roundedPosition = {
-      x: Number(draggedNode.position.x.toFixed(2)),
-      y: Number(draggedNode.position.y.toFixed(2)),
-    }
-
-    setNodes((currentNodes) => {
-      const nextNodes = currentNodes.map((node) =>
-        node.id === draggedNode.id
-          ? { ...node, position: roundedPosition }
-          : node,
-      )
-
-      setSavedNodePositions(
-        Object.fromEntries(
-          nextNodes.map((node) => [
-            node.id,
-            {
-              x: Number(node.position.x.toFixed(2)),
-              y: Number(node.position.y.toFixed(2)),
-            },
-          ]),
-        ),
-      )
-      setSavedNodePositionsPipelineId(selectedRun?.id ?? "")
-
-      return nextNodes
-    })
-  }, [selectedRun?.id, setNodes])
 
   const fitViewKey = useMemo(() => {
     if (!selectedRun) {
@@ -348,6 +302,10 @@ function App() {
 
     return `${selectedRun.id}:${graphModel?.session.nodes.length ?? 0}`
   }, [graphModel, selectedRun])
+
+  useEffect(() => {
+    setDetailsPanelWidth((currentWidth) => clampPanelWidth(currentWidth, viewportWidth))
+  }, [viewportWidth])
 
   useEffect(() => {
     if (!selectedRun) {
@@ -361,14 +319,10 @@ function App() {
     // Only restore isDetailsOpen when switching pipelines
     setIsDetailsOpen(savedState.isDetailsOpen)
     setDetailsPanelWidth(
-      Math.max(
-        MIN_PANEL_WIDTH,
-        Math.min(MAX_PANEL_WIDTH, savedState.panelWidth ?? DEFAULT_PANEL_WIDTH),
-      ),
+      clampPanelWidth(savedState.panelWidth ?? DEFAULT_PANEL_WIDTH, viewportWidth),
     )
     setCanvasMode(savedState.canvasMode ?? DEFAULT_CANVAS_MODE)
     setSavedNodePositions(savedState.nodePositions ?? null)
-    setSavedNodePositionsPipelineId(selectedRun.id)
     setPlaybackIndex(savedState.playbackIndex)
     setSpeed(savedState.playbackSpeed)
     setRequestedStartNodeId("")
@@ -379,24 +333,51 @@ function App() {
     setTimeout(() => {
       isRestoringState.current = false
     }, 0)
-  }, [getPipelineState, selectedRun?.id, setPlaybackIndex, setSpeed, setRequestedStartNodeId])
+  }, [getPipelineState, selectedRun?.id, setPlaybackIndex, setSpeed, setRequestedStartNodeId, viewportWidth])
 
-  // Save state when it changes
-  // Note: Don't save selectedNodeId - it's transient and driven by activePlaybackNodeId
-  // Only save isDetailsOpen, playbackIndex, playbackSpeed which are user preferences
   useEffect(() => {
-    const nodePositionsToPersist = activeSavedNodePositions ?? persistedNodePositions
+    if (!selectedRun || isRestoringState.current || !nodePositionSnapshot) {
+      return undefined
+    }
 
-    if (!selectedRun || isRestoringState.current || !nodePositionsToPersist) return
-    setPipelineState(selectedRun.id, {
-      playbackIndex: playbackIndex,
-      isDetailsOpen: isDetailsOpen,
-      panelWidth: detailsPanelWidth,
-      playbackSpeed: playbackSpeed,
-      canvasMode,
-      nodePositions: nodePositionsToPersist,
-    })
-  }, [selectedRun?.id, playbackIndex, isDetailsOpen, detailsPanelWidth, playbackSpeed, canvasMode, activeSavedNodePositions, persistedNodePositions, setPipelineState])
+    const timeoutId = window.setTimeout(() => {
+      setPipelineState(selectedRun.id, {
+        isDetailsOpen,
+        panelWidth: detailsPanelWidth,
+        playbackSpeed,
+        canvasMode,
+        nodePositions: nodePositionSnapshot,
+      })
+    }, 80)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    selectedRun?.id,
+    isDetailsOpen,
+    detailsPanelWidth,
+    playbackSpeed,
+    canvasMode,
+    nodePositionSnapshot,
+    setPipelineState,
+  ])
+
+  useEffect(() => {
+    if (!selectedRun || isRestoringState.current) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPipelineState(selectedRun.id, {
+        playbackIndex,
+      })
+    }, isPlaying ? 180 : 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [selectedRun?.id, playbackIndex, isPlaying, setPipelineState])
 
   const handleSelectRun = useCallback(
     (runId) => {
@@ -414,24 +395,37 @@ function App() {
     pause()
   }
 
-  const currentNodeData =
-    detailsNodeId && graphModel
-      ? buildNodeData(
-          graphModel,
-          selectedRun,
-          detailsNodeId,
-          selectedNodeId,
-          isDetailsOpen ? detailsNodeId : "",
-          activePlaybackNodeId,
-          isPlaying,
-          (nodeId) => {
-            void runChainFromNode(nodeId)
-          },
-          handleOpenDetails,
-          NODE_DIMENSIONS,
-          shortenPreview,
-        )
-      : null
+  const currentNodeData = useMemo(() => {
+    if (!detailsNodeId || !graphModel) {
+      return null
+    }
+
+    return buildNodeData(
+      graphModel,
+      selectedRun,
+      detailsNodeId,
+      selectedNodeId,
+      isDetailsOpen ? detailsNodeId : "",
+      activePlaybackNodeId,
+      isPlaying,
+      (nodeId) => {
+        void runChainFromNode(nodeId)
+      },
+      handleOpenDetails,
+      NODE_DIMENSIONS,
+      shortenPreview,
+    )
+  }, [
+    activePlaybackNodeId,
+    detailsNodeId,
+    graphModel,
+    handleOpenDetails,
+    isDetailsOpen,
+    isPlaying,
+    runChainFromNode,
+    selectedNodeId,
+    selectedRun,
+  ])
 
   if (error) {
     return <WorkflowEmptyState description={error} title="UI failed to load" />
@@ -459,7 +453,7 @@ function App() {
             onResize={setDetailsPanelWidth}
             width={detailsPanelWidth}
             minWidth={MIN_PANEL_WIDTH}
-            maxWidth={MAX_PANEL_WIDTH}
+            maxWidth={maxPanelWidth}
           />
         ) : null}
 
@@ -468,9 +462,7 @@ function App() {
           edges={edges}
           fitViewKey={fitViewKey}
           nodes={nodes}
-          onNodeDragStop={handleNodeDragStop}
           onNodesChange={onNodesChange}
-          onNodeSelect={handleOpenDetails}
           onPaneClick={() => {
             if (!isDetailsOpen) {
               setSelectedNodeId("")

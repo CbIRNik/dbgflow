@@ -78,80 +78,129 @@ function renderHighlightedLines(content, preferredLanguage, keyPrefix) {
   ))
 }
 
-function countBracketDelta(line) {
-  const opens = [...line].filter((char) => char === "[").length
-  const closes = [...line].filter((char) => char === "]").length
-  return opens - closes
+function detectPreviewBlockKind(trimmedLine) {
+  if (trimmedLine.endsWith("{")) {
+    return "object"
+  }
+
+  if (trimmedLine.endsWith("[")) {
+    return "array"
+  }
+
+  return null
 }
 
-function collectCollapsibleArrays(content) {
-  const lines = content.split("\n")
-  const sections = []
-  const plainBuffer = []
-  const flushPlainBuffer = () => {
-    if (!plainBuffer.length) {
-      return
+function isPreviewBlockClosingLine(trimmedLine, kind) {
+  if (kind === "object") {
+    return trimmedLine === "}" || trimmedLine === "},"
+  }
+
+  if (kind === "array") {
+    return trimmedLine === "]" || trimmedLine === "],"
+  }
+
+  return false
+}
+
+function countVisiblePreviewEntries(entries) {
+  return entries.reduce((count, entry) => {
+    if (entry.type === "line") {
+      return entry.content.trim() ? count + 1 : count
     }
 
-    sections.push({
-      type: "text",
-      content: plainBuffer.join("\n"),
-    })
-    plainBuffer.length = 0
+    return count + 1
+  }, 0)
+}
+
+function isPreviewBlockCollapsible(block) {
+  const visibleEntryCount = countVisiblePreviewEntries(block.children)
+  const hasNestedBlocks = block.children.some((entry) => entry.type === "block")
+
+  return visibleEntryCount >= 3 || hasNestedBlocks
+}
+
+function containsCollapsiblePreviewBlock(entries) {
+  return entries.some((entry) => {
+    if (entry.type === "line") {
+      return false
+    }
+
+    return (
+      isPreviewBlockCollapsible(entry) ||
+      containsCollapsiblePreviewBlock(entry.children)
+    )
+  })
+}
+
+function buildCollapsedBlockLine(block) {
+  const bracket = block.kind === "array" ? "[" : "{"
+  const summaryLabel = block.kind === "array" ? "items" : "fields"
+  const prefix = block.openLine.slice(0, block.openLine.lastIndexOf(bracket)).trimEnd()
+  const indent = block.openLine.match(/^\s*/)?.[0] ?? ""
+  const suffix = block.closeLine.trimEnd().endsWith(",") ? "," : ""
+  const visibleEntryCount = countVisiblePreviewEntries(block.children)
+
+  if (block.kind === "array") {
+    return prefix
+      ? `${prefix} [ … ${visibleEntryCount} ${summaryLabel} ]${suffix}`
+      : `${indent}[ … ${visibleEntryCount} ${summaryLabel} ]${suffix}`
   }
+
+  return prefix
+    ? `${prefix} { … ${visibleEntryCount} ${summaryLabel} }${suffix}`
+    : `${indent}{ … ${visibleEntryCount} ${summaryLabel} }${suffix}`
+}
+
+function buildStructuredPreviewTree(content) {
+  const lines = content.split("\n")
+  if (lines.length < 2) {
+    return null
+  }
+
+  const root = { children: [] }
+  const stack = [root]
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
-    const trimmed = line.trim()
-    const looksLikeArrayStart =
-      trimmed.endsWith("[") && !trimmed.startsWith("//") && !trimmed.startsWith("#")
+    const trimmedLine = line.trim()
+    const blockKind = detectPreviewBlockKind(trimmedLine)
 
-    if (!looksLikeArrayStart) {
-      plainBuffer.push(line)
+    if (blockKind) {
+      const block = {
+        type: "block",
+        kind: blockKind,
+        key: `block-${index}-${blockKind}`,
+        openLine: line,
+        closeLine: "",
+        children: [],
+      }
+      stack[stack.length - 1].children.push(block)
+      stack.push(block)
       continue
     }
 
-    let depth = countBracketDelta(line)
-    if (depth <= 0) {
-      plainBuffer.push(line)
+    const currentBlock = stack[stack.length - 1]
+    if (
+      stack.length > 1 &&
+      isPreviewBlockClosingLine(trimmedLine, currentBlock.kind)
+    ) {
+      currentBlock.closeLine = line
+      stack.pop()
       continue
     }
 
-    const arrayLines = [line]
-    let endIndex = index
-    while (depth > 0 && endIndex + 1 < lines.length) {
-      endIndex += 1
-      arrayLines.push(lines[endIndex])
-      depth += countBracketDelta(lines[endIndex])
-    }
-
-    const itemCount = arrayLines.slice(1, -1).filter((entry) => entry.trim()).length
-    if (depth !== 0 || itemCount < 10) {
-      plainBuffer.push(...arrayLines)
-      index = endIndex
-      continue
-    }
-
-    flushPlainBuffer()
-
-    const startLine = arrayLines[0]
-    const endLine = arrayLines[arrayLines.length - 1]
-    const collapsedPrefix = startLine.slice(0, startLine.lastIndexOf("[")).trimEnd()
-    const collapsedSuffix = endLine.trim().endsWith(",") ? "," : ""
-
-    sections.push({
-      type: "array",
-      collapsedLine: `${collapsedPrefix} [ … ${itemCount} items ]${collapsedSuffix}`,
-      expandedContent: arrayLines.join("\n"),
-      key: `${index}-${itemCount}`,
+    stack[stack.length - 1].children.push({
+      type: "line",
+      key: `line-${index}`,
+      content: line,
     })
-
-    index = endIndex
   }
 
-  flushPlainBuffer()
+  if (stack.length !== 1 || !containsCollapsiblePreviewBlock(root.children)) {
+    return null
+  }
 
-  return sections.some((section) => section.type === "array") ? sections : null
+  return root.children
 }
 
 function formatSourceCode(content) {
@@ -253,35 +302,81 @@ function highlightData(content, preferredLanguage = null) {
   return null
 }
 
-function CollapsibleArrayBlock({ section, preferredLanguage }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+function renderPreviewEntries(entries, preferredLanguage, keyPrefix) {
+  return entries.map((entry, index) =>
+    entry.type === "line" ? (
+      <span
+        key={`${keyPrefix}-${entry.key}-${index}`}
+        className="details-panel__preview-line"
+        dangerouslySetInnerHTML={{
+          __html: entry.content
+            ? highlightLine(entry.content, preferredLanguage)
+            : "&nbsp;",
+        }}
+      />
+    ) : (
+      <FoldablePreviewBlock
+        key={`${keyPrefix}-${entry.key}-${index}`}
+        block={entry}
+        preferredLanguage={preferredLanguage}
+      />
+    ),
+  )
+}
+
+function FoldablePreviewBlock({ block, preferredLanguage }) {
+  const isCollapsible = isPreviewBlockCollapsible(block)
+  const [isExpanded, setIsExpanded] = useState(!isCollapsible)
 
   return (
-    <div className="details-panel__array-section">
-      <button
-        className="details-panel__array-toggle"
-        onClick={() => setIsExpanded((current) => !current)}
-        type="button"
-      >
-        {isExpanded ? "Hide array" : "Show array"}
-      </button>
-      {isExpanded
-        ? renderHighlightedLines(
-            section.expandedContent,
-            preferredLanguage,
-            `array-expanded-${section.key}`,
-          )
-        : renderHighlightedLines(
-            section.collapsedLine,
-            preferredLanguage,
-            `array-collapsed-${section.key}`,
+    <div className="details-panel__fold-block">
+      {isCollapsible ? (
+        <button
+          className="details-panel__fold-button"
+          onClick={() => setIsExpanded((current) => !current)}
+          type="button"
+        >
+          {isExpanded ? (
+            <ChevronDown className="details-panel__fold-indicator" />
+          ) : (
+            <ChevronRight className="details-panel__fold-indicator" />
           )}
+          <span
+            className="details-panel__preview-line"
+            dangerouslySetInnerHTML={{
+              __html: highlightLine(
+                isExpanded ? block.openLine : buildCollapsedBlockLine(block),
+                preferredLanguage,
+              ),
+            }}
+          />
+        </button>
+      ) : (
+        renderHighlightedLines(
+          block.openLine,
+          preferredLanguage,
+          `block-open-${block.key}`,
+        )
+      )}
+
+      {isExpanded ? (
+        <div className="details-panel__fold-body">
+          {renderPreviewEntries(block.children, preferredLanguage, block.key)}
+          {block.closeLine
+            ? renderHighlightedLines(
+                block.closeLine,
+                preferredLanguage,
+                `block-close-${block.key}`,
+              )
+            : null}
+        </div>
+      ) : null}
     </div>
   )
 }
 
 function PreviewBlock({ content, preferredLanguage = null }) {
-  const sections = collectCollapsibleArrays(content)
+  const sections = buildStructuredPreviewTree(content)
 
   if (!sections) {
     const highlighted = highlightData(content, preferredLanguage)
@@ -296,19 +391,7 @@ function PreviewBlock({ content, preferredLanguage = null }) {
 
   return (
     <div className="details-panel__record-preview details-panel__record-preview--structured">
-      {sections.map((section, index) =>
-        section.type === "array" ? (
-          <CollapsibleArrayBlock
-            key={section.key}
-            preferredLanguage={preferredLanguage}
-            section={section}
-          />
-        ) : (
-          <div className="details-panel__text-section" key={`text-${index}`}>
-            {renderHighlightedLines(section.content, preferredLanguage, `text-${index}`)}
-          </div>
-        ),
-      )}
+      {renderPreviewEntries(sections, preferredLanguage, "preview")}
     </div>
   )
 }

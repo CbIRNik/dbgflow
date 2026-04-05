@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { startTransition, useCallback, useEffect, useRef, useState } from "react"
 import { BASE_PLAYBACK_INTERVAL_MS } from "../utils/constants.js"
 import { resolvePlaybackStartIndex } from "../utils/graphUtils.js"
 
@@ -28,7 +28,9 @@ export function usePlayback({
   const updatePlaybackIndex = useCallback(
     (nextIndex) => {
       playbackIndexRef.current = nextIndex
-      setPlaybackIndex(nextIndex)
+      startTransition(() => {
+        setPlaybackIndex(nextIndex)
+      })
       if (typeof window !== "undefined") {
         const runId = fullGraphModel?.session?.events?.[0]?.node_id || "global"
         localStorage.setItem(

@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { memo, useRef } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Play } from "lucide-react"
 import { Button } from "./ui"
@@ -22,7 +22,7 @@ function formatNodeLabel(node) {
   return node.label
 }
 
-export default function GraphNode({ data, selected }) {
+function GraphNode({ data, selected }) {
   const pointerStateRef = useRef(null)
   const node = data.node
   const kind = KIND_CONFIG[node.kind] ?? KIND_CONFIG.function
@@ -31,15 +31,6 @@ export default function GraphNode({ data, selected }) {
     data.executionState === "running"
       ? "workflow-node--running-static"
       : `workflow-node--${data.executionState}`
-  const animationClassName = data.isAnimating
-    ? "workflow-node--running-animated"
-    : ""
-  const handoffClassName =
-    data.handoffState === "source"
-      ? "workflow-node--handoff-source"
-      : data.handoffState === "target"
-        ? "workflow-node--handoff-target"
-        : ""
   const interactionModeClassName =
     data.canvasMode === "move-nodes" ? "workflow-node--draggable" : ""
   const statusClassName =
@@ -47,7 +38,6 @@ export default function GraphNode({ data, selected }) {
       ? [
           "workflow-node__status",
           "workflow-node__status--running-static",
-          data.isAnimating ? "workflow-node__status--running-animated" : "",
         ]
           .filter(Boolean)
           .join(" ")
@@ -63,8 +53,6 @@ export default function GraphNode({ data, selected }) {
         "workflow-node",
         isSelected ? "is-selected" : "",
         executionStateClassName,
-        animationClassName,
-        handoffClassName,
         interactionModeClassName,
       ]
         .filter(Boolean)
@@ -155,3 +143,19 @@ export default function GraphNode({ data, selected }) {
     </div>
   )
 }
+
+function areGraphNodePropsEqual(previousProps, nextProps) {
+  return (
+    previousProps.selected === nextProps.selected &&
+    previousProps.data.canvasMode === nextProps.data.canvasMode &&
+    previousProps.data.canRunChain === nextProps.data.canRunChain &&
+    previousProps.data.executionState === nextProps.data.executionState &&
+    previousProps.data.isSelected === nextProps.data.isSelected &&
+    previousProps.data.dimensions.width === nextProps.data.dimensions.width &&
+    previousProps.data.node.id === nextProps.data.node.id &&
+    previousProps.data.node.kind === nextProps.data.node.kind &&
+    previousProps.data.node.label === nextProps.data.node.label
+  )
+}
+
+export default memo(GraphNode, areGraphNodePropsEqual)

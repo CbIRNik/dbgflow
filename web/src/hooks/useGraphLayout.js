@@ -1,134 +1,194 @@
-import { useEffect, useState } from "react";
-import { MarkerType, Position, applyNodeChanges } from "@xyflow/react";
-import { NODE_DIMENSIONS, EDGE_COLORS } from "../utils/constants.js";
-import { applyLayout } from "../utils/graphUtils.js";
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { MarkerType, Position, applyNodeChanges } from "@xyflow/react"
+import { NODE_DIMENSIONS, EDGE_COLORS } from "../utils/constants.js"
+import { applyLayout } from "../utils/graphUtils.js"
 
-function buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying) {
+function roundPosition(position) {
+  return {
+    x: Number(position.x.toFixed(2)),
+    y: Number(position.y.toFixed(2)),
+  }
+}
+
+function buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds) {
   return graphModel.session.edges.map((edge, index) => {
-    const isVisible = graphModel.visitedNodeIds.size === 0 || graphModel.visitedNodeIds.has(edge.from) || graphModel.visitedNodeIds.has(edge.to);
-    const edgeId = `${edge.from}::${edge.to}`;
-    const isHandoff = Boolean(handoff?.edgeIds?.has(edgeId));
+    const isVisible =
+      graphModel.visitedNodeIds.size === 0 ||
+      graphModel.visitedNodeIds.has(edge.from) ||
+      graphModel.visitedNodeIds.has(edge.to)
+    const edgeId = `${edge.from}::${edge.to}`
     const touchesActiveNode = Boolean(
-      activePlaybackNodeId && (edge.from === activePlaybackNodeId || edge.to === activePlaybackNodeId)
-    );
-    const isActive = activeEdgeIds.has(edgeId) || (touchesActiveNode && edge.kind === "test_link");
-    const stroke = isActive ? "#f5f5f5" : EDGE_COLORS[edge.kind] ?? EDGE_COLORS.control_flow;
+      activePlaybackNodeId &&
+        (edge.from === activePlaybackNodeId || edge.to === activePlaybackNodeId),
+    )
+    const isActive =
+      activeEdgeIds.has(edgeId) || (touchesActiveNode && edge.kind === "test_link")
+    const stroke = isActive
+      ? "#f5f5f5"
+      : EDGE_COLORS[edge.kind] ?? EDGE_COLORS.control_flow
 
     return {
       id: `${edge.from}::${edge.to}::${index}`,
       source: edge.from,
       target: edge.to,
       type: "smoothstep",
-      animated: isHandoff,
-      className: `workflow-edge ${isActive ? "is-active" : ""} ${isHandoff ? "is-handoff" : ""}`,
+      className: `workflow-edge ${isActive ? "is-active" : ""}`,
       pathOptions: {
         borderRadius: 14,
-        offset: 18
+        offset: 18,
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
         width: 9,
         height: 9,
-        color: stroke
+        color: stroke,
       },
       style: {
         stroke,
-        opacity: isVisible ? (isActive || isHandoff ? 1 : 0.8) : 0.2,
-        strokeWidth: isActive ? 3.1 : isHandoff ? 2.6 : 1.9
-      }
-    };
-  });
+        opacity: isVisible ? (isActive ? 1 : 0.8) : 0.2,
+        strokeWidth: isActive ? 3.1 : 1.9,
+      },
+    }
+  })
 }
 
-/**
- * Hook for dagre graph layout calculation.
- * @param {object} options
- * @param {object|null} options.graphModel - The graph model containing session data
- * @param {object|null} options.selectedRun - The currently selected run
- * @param {string} options.selectedNodeId - ID of the currently selected node
- * @param {string} options.detailsNodeId - ID of the node with open details panel
- * @param {string|null} options.activePlaybackNodeId - ID of the active playback node
- * @param {Set} options.activeEdgeIds - Set of active edge IDs
- * @param {boolean} options.isPlaying - Whether playback is active
- * @param {Function} options.onRunChain - Callback when running chain from a start node
- * @param {Function} options.onOpenDetails - Callback when opening node details
- * @param {Function} options.buildNodeData - Function to build node data
- * @returns {{ nodes: Array, edges: Array, onNodesChange: Function, setNodes: Function }}
- */
+function buildPositionMap(nodes, layout, savedNodePositions) {
+  const positions = {}
+
+  for (const node of nodes) {
+    positions[node.id] = roundPosition(
+      savedNodePositions?.[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 },
+    )
+  }
+
+  return positions
+}
+
+function buildNodesForChangeSet(nodes, nodePositions, layout) {
+  return nodes.map((node) => ({
+    id: node.id,
+    position: nodePositions[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 },
+  }))
+}
+
 export function useGraphLayout({
   graphModel,
   selectedRun,
   selectedNodeId,
-  detailsNodeId,
   canvasMode,
   activePlaybackNodeId,
   activeEdgeIds,
-  handoff,
-  isPlaying,
   onRunChain,
   onOpenDetails,
   buildNodeData,
-  savedNodePositions
+  savedNodePositions,
 }) {
-  const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]);
+  const graphNodes = graphModel?.session.nodes ?? []
+  const graphEdges = graphModel?.session.edges ?? []
+  const firstSeenSeqByNode = graphModel?.firstSeenSeqByNode ?? null
+  const layoutKey = selectedRun
+    ? `${selectedRun.id}:${graphNodes.length}:${graphEdges.length}`
+    : ""
+
+  const layout = useMemo(() => {
+    if (!graphModel) {
+      return new Map()
+    }
+
+    return applyLayout(
+      graphNodes,
+      graphEdges,
+      firstSeenSeqByNode,
+    )
+  }, [firstSeenSeqByNode, graphEdges, graphNodes])
+  const [nodePositions, setNodePositions] = useState({})
 
   useEffect(() => {
     if (!graphModel) {
-      return;
+      setNodePositions({})
+      return
     }
 
-    const layout = applyLayout(
-      graphModel.session.nodes,
-      graphModel.session.edges,
-      graphModel.firstSeenSeqByNode
-    );
+    setNodePositions(buildPositionMap(graphNodes, layout, savedNodePositions))
+  }, [graphNodes, layout, layoutKey, savedNodePositions])
 
-    setEdges(buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying));
-    setNodes((currentNodes) => {
-      const currentById = new Map(currentNodes.map((node) => [node.id, node]));
+  const edges = useMemo(() => {
+    if (!graphModel) {
+      return []
+    }
 
-      return graphModel.session.nodes.map((node) => ({
-        id: node.id,
-        type: "inspector",
-        draggable: canvasMode === "move-nodes",
-        selected: selectedNodeId === node.id,
-        position:
-          currentById.get(node.id)?.position ??
-          savedNodePositions?.[node.id] ??
-          layout.get(node.id) ??
-          { x: 0, y: 0 },
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        data: {
-          ...buildNodeData(
-            graphModel,
-            selectedRun,
-            node.id,
-            selectedNodeId,
-            detailsNodeId,
-            activePlaybackNodeId,
-            isPlaying,
-            onRunChain,
-            onOpenDetails
-          ),
-          canvasMode,
-          handoffState:
-            handoff?.from === node.id
-              ? "source"
-              : handoff?.to === node.id
-                ? "target"
-                : null
-        }
-      }));
-    });
-  }, [graphModel, selectedRun, selectedNodeId, detailsNodeId, canvasMode, activePlaybackNodeId, activeEdgeIds, handoff, isPlaying, onRunChain, onOpenDetails, buildNodeData, savedNodePositions]);
+    return buildEdges(graphModel, activePlaybackNodeId, activeEdgeIds)
+  }, [graphModel, activePlaybackNodeId, activeEdgeIds])
 
-  const onNodesChange = (changes) => {
-    setNodes((currentNodes) => applyNodeChanges(changes, currentNodes));
-  };
+  const nodes = useMemo(() => {
+    if (!graphModel) {
+      return []
+    }
 
-  return { nodes, edges, onNodesChange, setNodes };
+    return graphNodes.map((node) => ({
+      id: node.id,
+      type: "inspector",
+      draggable: canvasMode === "move-nodes",
+      selected: selectedNodeId === node.id,
+      position: nodePositions[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 },
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+      data: {
+        ...buildNodeData(
+          graphModel,
+          selectedRun,
+          node.id,
+          selectedNodeId,
+          activePlaybackNodeId,
+          onRunChain,
+          onOpenDetails,
+        ),
+        canvasMode,
+      },
+    }))
+  }, [
+    graphModel,
+    graphNodes,
+    selectedRun,
+    selectedNodeId,
+    canvasMode,
+    nodePositions,
+    layout,
+    activePlaybackNodeId,
+    onRunChain,
+    onOpenDetails,
+    buildNodeData,
+  ])
+
+  const nodePositionSnapshot = useMemo(() => {
+    if (!graphNodes.length) {
+      return null
+    }
+
+    return Object.fromEntries(
+      graphNodes.map((node) => [
+        node.id,
+        roundPosition(nodePositions[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 }),
+      ]),
+    )
+  }, [graphNodes, layout, nodePositions])
+
+  const onNodesChange = useCallback((changes) => {
+    if (!graphNodes.length || canvasMode !== "move-nodes") {
+      return
+    }
+
+    setNodePositions((currentPositions) => {
+      const currentNodes = buildNodesForChangeSet(graphNodes, currentPositions, layout)
+      const nextNodes = applyNodeChanges(changes, currentNodes)
+
+      return Object.fromEntries(
+        nextNodes.map((node) => [node.id, roundPosition(node.position)]),
+      )
+    })
+  }, [canvasMode, graphNodes, layout])
+
+  return { nodes, edges, nodePositionSnapshot, onNodesChange }
 }
 
-export { NODE_DIMENSIONS, EDGE_COLORS };
+export { NODE_DIMENSIONS, EDGE_COLORS }

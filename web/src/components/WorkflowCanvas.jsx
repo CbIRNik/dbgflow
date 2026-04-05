@@ -53,8 +53,6 @@ export default function WorkflowCanvas({
   edges,
   fitViewKey,
   nodes,
-  onNodeDragStop,
-  onNodeSelect,
   onNodesChange,
   onPaneClick,
 }) {
@@ -69,14 +67,9 @@ export default function WorkflowCanvas({
         nodes={nodes}
         nodesConnectable={false}
         nodesDraggable={canvasMode === "move-nodes"}
-        onNodeDragStop={(_, node) => {
-          onNodeDragStop?.(node)
-        }}
-        onNodeClick={(_, node) => {
-          onNodeSelect(node.id)
-        }}
         onNodesChange={onNodesChange}
         onPaneClick={onPaneClick}
+        onlyRenderVisibleElements
         panOnDrag={canvasMode === "pan-canvas"}
         proOptions={{ hideAttribution: true }}
         selectNodesOnDrag={false}
