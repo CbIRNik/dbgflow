@@ -516,9 +516,9 @@ pre {
   left: 12px;
   right: 12px;
   z-index: 20;
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 12px;
+  align-items: stretch;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -531,10 +531,19 @@ pre {
   left: calc(var(--sidebar-width) + 24px);
 }
 
+.playback-bar__top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
 .playback-bar__controls {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .playback-bar__play {
@@ -551,9 +560,9 @@ pre {
 }
 
 .playback-bar__timeline {
-  flex: 1;
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .playback-bar__toolbar {
@@ -561,6 +570,8 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .playback-bar__toolbar-group {
@@ -657,44 +668,36 @@ pre {
   font-size: 12px;
 }
 
-.playback-bar--stacked {
-  flex-wrap: wrap;
-  align-items: stretch;
-}
-
-.playback-bar--stacked .playback-bar__controls,
-.playback-bar--stacked .playback-bar__timeline {
-  width: 100%;
-}
-
-.playback-bar--stacked .playback-bar__controls {
-  justify-content: center;
-}
-
-.playback-bar--stacked .playback-bar__separator {
-  display: none;
-}
-
-.playback-bar--stacked .playback-bar__toolbar {
+.playback-bar--wrapped .playback-bar__top-row {
   flex-wrap: wrap;
   align-items: flex-start;
 }
 
-.playback-bar--stacked .playback-bar__toolbar-group,
-.playback-bar--stacked .playback-bar__toolbar-actions {
-  width: 100%;
+.playback-bar--wrapped .playback-bar__toolbar {
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
-.playback-bar--stacked .playback-bar__toolbar-actions {
-  justify-content: space-between;
+.playback-bar--wrapped .playback-bar__separator {
+  display: none;
+}
+
+.playback-bar--wrapped .playback-bar__toolbar-group {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .playback-bar--compact .playback-bar__toolbar-group {
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .playback-bar--compact .playback-bar__picker {
   width: 100%;
+}
+
+.playback-bar--compact .playback-bar__toolbar {
+  gap: 10px;
 }
 @media (max-width: 1180px) {
   .details-panel {
@@ -725,13 +728,14 @@ pre {
   }
 
   .playback-bar {
-    flex-wrap: wrap;
+    gap: 10px;
   }
 
   .playback-bar__separator {
     display: none;
   }
 
+  .playback-bar__top-row,
   .playback-bar__toolbar,
   .playback-bar__toolbar-group {
     flex-wrap: wrap;

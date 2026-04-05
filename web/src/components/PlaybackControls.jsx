@@ -152,8 +152,8 @@ export default function PlaybackControls({
   totalEvents,
 }) {
   const currentStep = Math.max(1, playbackIndex + 1)
-  const shouldStackLayout = hasDetailsPanel && availableWidth < 1120
-  const shouldCollapseAuxControls = hasDetailsPanel && availableWidth < 920
+  const shouldWrapTopRow = availableWidth < (hasDetailsPanel ? 900 : 760)
+  const shouldCollapseAuxControls = availableWidth < (hasDetailsPanel ? 1120 : 860)
   const [displayStep, setDisplayStep] = useState(currentStep)
   const displayStepRef = useRef(currentStep)
 
@@ -211,41 +211,41 @@ export default function PlaybackControls({
       className={[
         "playback-bar",
         hasDetailsPanel ? "playback-bar--with-panel" : "",
-        shouldStackLayout ? "playback-bar--stacked" : "",
+        shouldWrapTopRow ? "playback-bar--wrapped" : "",
         shouldCollapseAuxControls ? "playback-bar--compact" : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      <div className="playback-bar__controls">
-        <Button
-          onClick={onSkipStart}
-          size="icon"
-          type="button"
-          variant="outline"
-        >
-          <StepBack className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          className="playback-bar__play"
-          onClick={togglePlayback}
-          size="icon"
-          type="button"
-        >
-          {isPlaying ? (
-            <Pause className="h-3.5 w-3.5" />
-          ) : (
-            <Play className="h-3.5 w-3.5" />
-          )}
-        </Button>
-        <Button onClick={onSkipEnd} size="icon" type="button" variant="outline">
-          <StepForward className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      <div className="playback-bar__top-row">
+        <div className="playback-bar__controls">
+          <Button
+            onClick={onSkipStart}
+            size="icon"
+            type="button"
+            variant="outline"
+          >
+            <StepBack className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            className="playback-bar__play"
+            onClick={togglePlayback}
+            size="icon"
+            type="button"
+          >
+            {isPlaying ? (
+              <Pause className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          <Button onClick={onSkipEnd} size="icon" type="button" variant="outline">
+            <StepForward className="h-3.5 w-3.5" />
+          </Button>
+        </div>
 
-      <Separator className="playback-bar__separator" orientation="vertical" />
+        <Separator className="playback-bar__separator" orientation="vertical" />
 
-      <div className="playback-bar__timeline">
         <div className="playback-bar__toolbar">
           <div className="playback-bar__toolbar-group">
             <PipelineDropdown
@@ -304,7 +304,9 @@ export default function PlaybackControls({
             )}
           </div>
         </div>
+      </div>
 
+      <div className="playback-bar__timeline">
         <Slider
           className="playback-bar__slider"
           max={totalEvents}

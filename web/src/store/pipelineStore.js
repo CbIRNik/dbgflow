@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+const DEFAULT_PIPELINE_STATE = {
+  playbackIndex: -1,
+  isDetailsOpen: false,
+  playbackSpeed: 1,
+  panelWidth: 420,
+  canvasMode: "pan-canvas",
+  nodePositions: null,
+}
+
 // Store for per-pipeline state
 export const usePipelineStore = create(
   persist(
@@ -12,23 +21,20 @@ export const usePipelineStore = create(
       // Get state for a specific pipeline
       getPipelineState: (pipelineId) => {
         const states = get().pipelineStates
-        return states[pipelineId] || {
-          playbackIndex: -1,
-          isDetailsOpen: false,
-          playbackSpeed: 1,
-          panelWidth: 420,
-          canvasMode: "pan-canvas",
-          nodePositions: null,
+        return {
+          ...DEFAULT_PIPELINE_STATE,
+          ...(states[pipelineId] || {}),
         }
       },
 
       // Update state for a specific pipeline
       setPipelineState: (pipelineId, updates) => {
+        const current = get().getPipelineState(pipelineId)
         set((state) => ({
           pipelineStates: {
             ...state.pipelineStates,
             [pipelineId]: {
-              ...state.pipelineStates[pipelineId],
+              ...current,
               ...updates,
             },
           },

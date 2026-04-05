@@ -69,7 +69,6 @@ function App() {
   const [routeRunId, setRouteRunId] = useState(() => readRunRouteId())
   const [selectedNodeId, setSelectedNodeId] = useState("")
   const [detailsNodeId, setDetailsNodeId] = useState("")
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [detailsPanelWidth, setDetailsPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
   const [canvasMode, setCanvasMode] = useState(DEFAULT_CANVAS_MODE)
   const [savedNodePositions, setSavedNodePositions] = useState(null)
@@ -79,13 +78,6 @@ function App() {
   const chainRuns = useMemo(() => deriveChainRuns(session), [session])
   const isRestoringState = useRef(false)
   const maxPanelWidth = useMemo(() => getMaxPanelWidth(viewportWidth), [viewportWidth])
-  const playbackBarWidth = useMemo(() => {
-    if (!isDetailsOpen || !detailsNodeId) {
-      return viewportWidth - 24
-    }
-
-    return Math.max(320, viewportWidth - detailsPanelWidth - 36)
-  }, [detailsNodeId, detailsPanelWidth, isDetailsOpen, viewportWidth])
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -138,6 +130,9 @@ function App() {
 
     return chainRuns.find((run) => run.id === routeRunId) ?? chainRuns[0]
   }, [chainRuns, routeRunId])
+  const isDetailsOpen = usePipelineStore((state) =>
+    selectedRun?.id ? state.getPipelineState(selectedRun.id).isDetailsOpen : false,
+  )
 
   const sortedEvents = useMemo(() => {
     if (!selectedRun) {
@@ -197,12 +192,56 @@ function App() {
   const handleOpenDetails = useCallback((nodeId) => {
     setSelectedNodeId(nodeId)
     setDetailsNodeId(nodeId)
-    setIsDetailsOpen(true)
-  }, [])
+    if (selectedRun?.id) {
+      setPipelineState(selectedRun.id, {
+        isDetailsOpen: true,
+      })
+    }
+  }, [selectedRun?.id, setPipelineState])
 
-  const handleCloseDetails = useCallback(() => {
-    setIsDetailsOpen(false)
-  }, [])
+  const handleDismissDetails = useCallback(() => {
+    setSelectedNodeId("")
+    setDetailsNodeId("")
+    if (selectedRun?.id) {
+      setPipelineState(selectedRun.id, {
+        isDetailsOpen: false,
+      })
+    }
+  }, [selectedRun?.id, setPipelineState])
+
+  useEffect(() => {
+    if (!isDetailsOpen && !selectedNodeId) {
+      return undefined
+    }
+
+    const handlePointerDown = (event) => {
+      if (!(event.target instanceof Element)) {
+        return
+      }
+
+      if (!event.target.closest(".react-flow")) {
+        return
+      }
+
+      if (
+        event.target.closest(".react-flow__node") ||
+        event.target.closest(".details-panel") ||
+        event.target.closest(".playback-bar") ||
+        event.target.closest("[data-radix-popper-content-wrapper]") ||
+        event.target.closest("[role='listbox']") ||
+        event.target.closest("[role='menu']")
+      ) {
+        return
+      }
+
+      handleDismissDetails()
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true)
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true)
+    }
+  }, [handleDismissDetails, isDetailsOpen, selectedNodeId])
 
   useEffect(() => {
     if (!activePlaybackNodeId || isRestoringState.current) {
@@ -310,6 +349,44 @@ function App() {
     return `${selectedRun.id}:${graphModel?.session.nodes.length ?? 0}`
   }, [graphModel, selectedRun])
 
+  const resolvedDetailsNodeId = useMemo(() => {
+    if (!isDetailsOpen || !graphModel) {
+      return ""
+    }
+
+    if (detailsNodeId && graphModel.nodeById.has(detailsNodeId)) {
+      return detailsNodeId
+    }
+
+    if (activePlaybackNodeId && graphModel.nodeById.has(activePlaybackNodeId)) {
+      return activePlaybackNodeId
+    }
+
+    if (selectedNodeId && graphModel.nodeById.has(selectedNodeId)) {
+      return selectedNodeId
+    }
+
+    if (graphModel.rootNodeId && graphModel.nodeById.has(graphModel.rootNodeId)) {
+      return graphModel.rootNodeId
+    }
+
+    return graphModel.session.nodes[0]?.id ?? ""
+  }, [
+    activePlaybackNodeId,
+    detailsNodeId,
+    graphModel,
+    isDetailsOpen,
+    selectedNodeId,
+  ])
+
+  const playbackBarWidth = useMemo(() => {
+    if (!isDetailsOpen) {
+      return viewportWidth - 24
+    }
+
+    return Math.max(320, viewportWidth - detailsPanelWidth - 36)
+  }, [detailsPanelWidth, isDetailsOpen, viewportWidth])
+
   useEffect(() => {
     setDetailsPanelWidth((currentWidth) => clampPanelWidth(currentWidth, viewportWidth))
   }, [viewportWidth])
@@ -322,16 +399,17 @@ function App() {
     // Restore saved state for this pipeline
     isRestoringState.current = true
     const savedState = getPipelineState(selectedRun.id)
-    // Don't restore selectedNodeId - let it be driven by activePlaybackNodeId
-    // Only restore isDetailsOpen when switching pipelines
-    setIsDetailsOpen(savedState.isDetailsOpen)
     setDetailsPanelWidth(
       clampPanelWidth(savedState.panelWidth ?? DEFAULT_PANEL_WIDTH, viewportWidth),
     )
     setCanvasMode(savedState.canvasMode ?? DEFAULT_CANVAS_MODE)
     setSavedNodePositions(savedState.nodePositions ?? null)
-    setPlaybackIndex(savedState.playbackIndex)
-    setSpeed(savedState.playbackSpeed)
+    setPlaybackIndex(
+      Number.isFinite(savedState.playbackIndex) ? savedState.playbackIndex : -1,
+    )
+    setSpeed(
+      Number.isFinite(savedState.playbackSpeed) ? savedState.playbackSpeed : 1,
+    )
     setRequestedStartNodeId("")
     // Reset transient node focus when switching pipelines - active playback can repopulate it.
     setSelectedNodeId("")
@@ -349,7 +427,6 @@ function App() {
 
     const timeoutId = window.setTimeout(() => {
       setPipelineState(selectedRun.id, {
-        isDetailsOpen,
         panelWidth: detailsPanelWidth,
         playbackSpeed,
         canvasMode,
@@ -362,7 +439,6 @@ function App() {
     }
   }, [
     selectedRun?.id,
-    isDetailsOpen,
     detailsPanelWidth,
     playbackSpeed,
     canvasMode,
@@ -403,16 +479,16 @@ function App() {
   }
 
   const currentNodeData = useMemo(() => {
-    if (!detailsNodeId || !graphModel) {
+    if (!resolvedDetailsNodeId || !graphModel) {
       return null
     }
 
     return buildNodeData(
       graphModel,
       selectedRun,
-      detailsNodeId,
+      resolvedDetailsNodeId,
       selectedNodeId,
-      isDetailsOpen ? detailsNodeId : "",
+      isDetailsOpen ? resolvedDetailsNodeId : "",
       activePlaybackNodeId,
       isPlaying,
       (nodeId) => {
@@ -424,11 +500,11 @@ function App() {
     )
   }, [
     activePlaybackNodeId,
-    detailsNodeId,
     graphModel,
     handleOpenDetails,
     isDetailsOpen,
     isPlaying,
+    resolvedDetailsNodeId,
     runChainFromNode,
     selectedNodeId,
     selectedRun,
@@ -449,14 +525,14 @@ function App() {
 
   return (
     <main
-      className={`screen screen--workflow ${isDetailsOpen && detailsNodeId ? "has-details-panel" : ""}`}
+      className={`screen screen--workflow ${isDetailsOpen ? "has-details-panel" : ""}`}
       style={{ "--sidebar-width": `${detailsPanelWidth}px` }}
     >
       <Fragment key={selectedRun?.id ?? "empty"}>
         {isDetailsOpen && currentNodeData ? (
           <NodeDetailsPanel
             nodeData={currentNodeData}
-            onClose={handleCloseDetails}
+            onClose={handleDismissDetails}
             onResize={setDetailsPanelWidth}
             width={detailsPanelWidth}
             minWidth={MIN_PANEL_WIDTH}
@@ -471,11 +547,7 @@ function App() {
           nodes={nodes}
           onNodesChange={onNodesChange}
           onNodeSelect={handleOpenDetails}
-          onPaneClick={() => {
-            if (!isDetailsOpen) {
-              setSelectedNodeId("")
-            }
-          }}
+          onPaneClick={handleDismissDetails}
         />
 
         {sortedEvents.length > 0 ? (
@@ -483,7 +555,7 @@ function App() {
             availableWidth={playbackBarWidth}
             canvasMode={canvasMode}
             currentStepLabel={activeStepLabel}
-            hasDetailsPanel={isDetailsOpen && Boolean(detailsNodeId)}
+            hasDetailsPanel={isDetailsOpen}
             isPlaying={isPlaying}
             onPause={pause}
             onPlay={play}

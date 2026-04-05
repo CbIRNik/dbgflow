@@ -129,6 +129,8 @@ export function useGraphLayout({
       id: node.id,
       type: "inspector",
       draggable: canvasMode === "move-nodes",
+      width: NODE_DIMENSIONS.width,
+      height: NODE_DIMENSIONS.height,
       selected: selectedNodeId === node.id,
       position: nodePositions[node.id] ?? layout.get(node.id) ?? { x: 0, y: 0 },
       sourcePosition: Position.Right,

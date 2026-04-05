@@ -8,16 +8,7 @@ export function usePlayback({
   onPlaybackComplete,
 }) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [playbackIndex, setPlaybackIndex] = useState(() => {
-    if (typeof window === "undefined") return -1
-    return parseInt(
-      localStorage.getItem(
-        "dbgflow_playback_index_" +
-          fullGraphModel?.session?.events?.[0]?.node_id,
-      ) || "-1",
-      10,
-    )
-  })
+  const [playbackIndex, setPlaybackIndex] = useState(-1)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const [requestedStartNodeId, setRequestedStartNodeId] = useState("")
   const animationFrameRef = useRef(0)
@@ -27,19 +18,13 @@ export function usePlayback({
 
   const updatePlaybackIndex = useCallback(
     (nextIndex) => {
-      playbackIndexRef.current = nextIndex
+      const safeNextIndex = Number.isFinite(nextIndex) ? nextIndex : -1
+      playbackIndexRef.current = safeNextIndex
       startTransition(() => {
-        setPlaybackIndex(nextIndex)
+        setPlaybackIndex(safeNextIndex)
       })
-      if (typeof window !== "undefined") {
-        const runId = fullGraphModel?.session?.events?.[0]?.node_id || "global"
-        localStorage.setItem(
-          "dbgflow_playback_index_" + runId,
-          nextIndex.toString(),
-        )
-      }
     },
-    [fullGraphModel],
+    [],
   )
 
   const resetTimelineClock = useCallback(() => {
