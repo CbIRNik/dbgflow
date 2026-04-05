@@ -67,6 +67,7 @@ export default function WorkflowCanvas({
       <ReactFlow
         key={fitViewKey || "workflow-canvas"}
         edges={edges}
+        edgesFocusable={false}
         edgesReconnectable={false}
         elementsSelectable={false}
         maxZoom={MAX_CANVAS_ZOOM}
