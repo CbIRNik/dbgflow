@@ -1,0 +1,74 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: d
+      - generic [ref=e7]:
+        - generic [ref=e8]: dbgflow
+        - generic [ref=e9]: "dbgflow demo: graph debugger session"
+    - generic [ref=e10]:
+      - button "All chain ▼" [ref=e12] [cursor=pointer]:
+        - generic [ref=e13]: All chain
+        - generic [ref=e14]: ▼
+      - generic [ref=e17]: Completed
+  - complementary [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: node details
+        - generic [ref=e22]: Evaluate Verdict
+      - button "✕" [ref=e23] [cursor=pointer]
+    - generic [ref=e24]:
+      - generic [ref=e25]: Function
+      - generic [ref=e26]: failed
+    - generic [ref=e27]:
+      - generic [ref=e28]: Input Data
+      - generic [ref=e30]:
+        - generic [ref=e31]: state
+        - generic [ref=e32]: type &mut dbgflow::demo::PipelineState
+    - generic [ref=e33]:
+      - generic [ref=e34]: Output Data
+      - generic [ref=e36]:
+        - generic [ref=e37]: result
+        - generic [ref=e38]: type ()
+    - generic [ref=e39]:
+      - generic [ref=e40]: Code
+      - generic [ref=e41]: "/// Computes a final verdict for the demo pipeline. pub fn evaluate(state: &mut PipelineState) { let has_debug = state.normalized.iter().any(|token| token.contains(\"debug\")); state.verdict = Some( if has_debug { \"interactive graph\".to_owned() } else { \"raw trace only\".to_owned() }, ); state.emit_snapshot(\"verdict computed\"); }"
+    - generic [ref=e42]:
+      - generic [ref=e43]: Connections
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e46]: to
+          - strong [ref=e47]: Pipeline State
+        - generic [ref=e48]:
+          - generic [ref=e49]: from
+          - strong [ref=e50]: Run Pipeline
+        - generic [ref=e51]:
+          - generic [ref=e52]: from
+          - strong [ref=e53]: renders_failed_node
+        - generic [ref=e54]:
+          - generic [ref=e55]: from
+          - strong [ref=e56]: Normalize Tokens
+        - generic [ref=e57]:
+          - generic [ref=e58]: to
+          - strong [ref=e59]: Pipeline State
+        - generic [ref=e60]:
+          - generic [ref=e61]: from
+          - strong [ref=e62]: Pipeline State
+        - generic [ref=e63]:
+          - generic [ref=e64]: to
+          - strong [ref=e65]: Run Pipeline
+  - application [ref=e67]:
+    - generic [ref=e69]:
+      - generic:
+        - generic:
+          - img
+    - img
+  - generic [ref=e71]:
+    - generic [ref=e72]:
+      - button "⏮" [ref=e73] [cursor=pointer]
+      - button "▶" [ref=e74] [cursor=pointer]
+      - button "⏭" [ref=e75] [cursor=pointer]
+    - generic [ref=e76]:
+      - slider "Step 1 of 14" [ref=e77] [cursor=pointer]: "1"
+      - spinbutton [ref=e78]: "1"
+      - generic [ref=e79]: / 14
+    - button "1x" [ref=e81] [cursor=pointer]

@@ -10,16 +10,20 @@ use std::path::Path;
 
 /// Re-exported runtime and session types from `dbgflow-core`.
 pub use dbgflow_core::{
-    Edge, Event, EventKind, FunctionMeta, Node, NodeKind, Session, TypeMeta, UiDebugValue,
-    ValueSlot, current_session, read_session_json, reset_session, runtime, serve_session,
-    write_session_json, write_session_snapshot_from_env, write_session_snapshot_in_dir,
+    Edge, EdgeKind, Event, EventKind, FunctionMeta, Node, NodeKind, Session, TypeMeta,
+    UiDebugValue, ValueSlot, capture_session, capture_session_and_serve, capture_session_to_path,
+    current_session, read_session_json, reset_session, runtime, serve_session,
+    serve_session_with_rerun, write_session_json, write_session_snapshot_from_env,
+    write_session_snapshot_in_dir,
 };
 /// Re-exported procedural macros from `dbgflow-macros`.
 pub use dbgflow_macros::{dbg_test, trace, ui_debug};
 
 /// Common imports for user code.
 pub mod prelude {
-    pub use crate::{UiDebugValue, dbg_test, trace, ui_debug};
+    pub use crate::{
+        UiDebugValue, capture, capture_and_serve, capture_to_file, dbg_test, trace, ui_debug,
+    };
 }
 
 /// Starts a fresh in-memory debugging session with the provided title.
@@ -30,6 +34,30 @@ pub fn init_session(title: impl Into<String>) {
 /// Writes the current in-memory session to a JSON file.
 pub fn save_current_session(path: impl AsRef<Path>) -> std::io::Result<()> {
     write_session_json(path)
+}
+
+/// Captures a specific block of code into a fresh in-memory session.
+pub fn capture<T>(title: impl Into<String>, run: impl FnOnce() -> T) -> T {
+    capture_session(title, run)
+}
+
+/// Captures a specific block of code and writes its session to a JSON file.
+pub fn capture_to_file<T>(
+    title: impl Into<String>,
+    path: impl AsRef<Path>,
+    run: impl FnOnce() -> T,
+) -> std::io::Result<T> {
+    capture_session_to_path(title, path, run)
+}
+
+/// Captures a specific block of code and immediately serves its session in the browser UI.
+pub fn capture_and_serve<T>(
+    title: impl Into<String>,
+    host: &str,
+    port: u16,
+    run: impl FnOnce() -> T,
+) -> std::io::Result<T> {
+    capture_session_and_serve(title, host, port, run)
 }
 
 /// Serves the current in-memory session over the embedded local HTTP server.
@@ -67,7 +95,7 @@ pub mod demo {
     };
 
     /// Small demo state object that appears as a data node in the UI.
-    #[ui_debug]
+    #[ui_debug(name = "Pipeline State")]
     pub struct PipelineState {
         /// Raw input sentence for the demo pipeline.
         pub input: String,
@@ -77,37 +105,75 @@ pub mod demo {
         pub normalized: Vec<String>,
         /// Final demo verdict.
         pub verdict: Option<String>,
+        /// Mock counter for network request recursion
+        pub network_retries: usize,
     }
 
     impl PipelineState {
         /// Creates the sample input used by the built-in demo.
         pub fn sample() -> Self {
             Self {
-                input: "Trace UIDebug test failure".to_owned(),
+                input: "Trace UIDebug test network failure".to_owned(),
                 tokens: Vec::new(),
                 normalized: Vec::new(),
                 verdict: None,
+                network_retries: 0,
+            }
+        }
+
+        /// Creates a second sample used to demonstrate switching between pipelines.
+        pub fn review_sample() -> Self {
+            Self {
+                input: "Review snapshot playback stability".to_owned(),
+                tokens: Vec::new(),
+                normalized: Vec::new(),
+                verdict: None,
+                network_retries: 0,
             }
         }
     }
 
     /// Runs the complete demo pipeline.
-    #[trace]
+    #[trace(name = "Run Pipeline")]
     pub fn run_pipeline(state: &mut PipelineState) {
         ingest(state);
         normalize(state);
-        evaluate(state);
+        let status = fetch_data_recursively(state, 3);
+        evaluate(state, status);
+    }
+
+    /// Runs the second demo pipeline used for chain switching.
+    #[trace(name = "Run Review Pipeline")]
+    pub fn run_review_pipeline(state: &mut PipelineState) {
+        ingest(state);
+        normalize(state);
+        summarize(state);
+    }
+
+    /// Recursively attempts a mock network fetch.
+    #[trace(name = "Network Fetch")]
+    pub fn fetch_data_recursively(state: &mut PipelineState, attempts_left: usize) -> bool {
+        state.network_retries += 1;
+        state.emit_snapshot("sending request...");
+
+        if attempts_left <= 1 {
+            state.emit_snapshot("request succeeded");
+            true
+        } else {
+            state.emit_snapshot("request failed, retrying");
+            fetch_data_recursively(state, attempts_left - 1)
+        }
     }
 
     /// Tokenizes the input string.
-    #[trace]
+    #[trace(name = "Ingest Input")]
     pub fn ingest(state: &mut PipelineState) {
         state.tokens = state.input.split_whitespace().map(str::to_owned).collect();
         state.emit_snapshot("input tokenized");
     }
 
     /// Normalizes tokens for the demo pipeline.
-    #[trace]
+    #[trace(name = "Normalize Tokens")]
     pub fn normalize(state: &mut PipelineState) {
         state.normalized = state
             .tokens
@@ -118,15 +184,25 @@ pub mod demo {
     }
 
     /// Computes a final verdict for the demo pipeline.
-    #[trace]
-    pub fn evaluate(state: &mut PipelineState) {
+    #[trace(name = "Evaluate Verdict")]
+    pub fn evaluate(state: &mut PipelineState, network_ok: bool) {
         let has_debug = state.normalized.iter().any(|token| token.contains("debug"));
-        state.verdict = Some(if has_debug {
-            "interactive graph".to_owned()
+        state.verdict = Some(if has_debug && network_ok {
+            "interactive graph (online)".to_owned()
         } else {
-            "raw trace only".to_owned()
+            "raw trace only (offline)".to_owned()
         });
         state.emit_snapshot("verdict computed");
+    }
+
+    /// Produces a human-readable summary for the second demo pipeline.
+    #[trace(name = "Summarize Playback")]
+    pub fn summarize(state: &mut PipelineState) {
+        state.verdict = Some(format!(
+            "{} tokens ready for review",
+            state.normalized.len()
+        ));
+        state.emit_snapshot("review summary prepared");
     }
 
     /// Adds a synthetic failing test event to the demo session.
@@ -142,14 +218,29 @@ pub mod demo {
         );
     }
 
+    /// Adds a synthetic passing test event for the second demo pipeline.
+    pub fn simulate_test_success() {
+        runtime::record_test_started(
+            "pipeline::renders_review_pipeline",
+            concat!(module_path!(), "::summarize"),
+        );
+        runtime::record_test_passed(
+            "pipeline::renders_review_pipeline",
+            concat!(module_path!(), "::summarize"),
+        );
+    }
+
     /// Builds the in-memory demo session.
     pub fn build_session() {
         reset_session("dbgflow demo: graph debugger session");
 
         let mut state = PipelineState::sample();
-        state.emit_snapshot("initial state");
         run_pipeline(&mut state);
         simulate_test_failure();
+
+        let mut review_state = PipelineState::review_sample();
+        run_review_pipeline(&mut review_state);
+        simulate_test_success();
     }
 
     /// Runs the demo, persists it to disk, and optionally serves it.
@@ -192,6 +283,12 @@ mod tests {
         }));
         assert!(
             session
+                .nodes
+                .iter()
+                .any(|node| node.id == "dbgflow::demo::run_review_pipeline")
+        );
+        assert!(
+            session
                 .events
                 .iter()
                 .any(|event| matches!(event.kind, EventKind::ValueSnapshot))
@@ -201,6 +298,12 @@ mod tests {
                 .events
                 .iter()
                 .any(|event| matches!(event.kind, EventKind::TestFailed))
+        );
+        assert!(
+            session
+                .events
+                .iter()
+                .any(|event| matches!(event.kind, EventKind::TestPassed))
         );
     }
 }

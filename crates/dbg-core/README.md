@@ -2,6 +2,11 @@
 
 Core runtime crate for the `dbgflow` graph debugger ecosystem.
 
+Published package:
+
+- crates.io: [crates.io/crates/dbgflow-core](https://crates.io/crates/dbgflow-core)
+- docs.rs: [docs.rs/dbgflow-core](https://docs.rs/dbgflow-core)
+
 This package contains:
 
 - session graph and event data types

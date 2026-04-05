@@ -4,10 +4,69 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>dbgflow UI</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/globals.css" />
     <link rel="stylesheet" href="/app.css" />
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        function shouldIgnoreBootError(message) {
+          if (!message) {
+            return false;
+          }
+
+          return message.indexOf("ResizeObserver loop completed with undelivered notifications") !== -1
+            || message.indexOf("ResizeObserver loop limit exceeded") !== -1;
+        }
+
+        function showBootError(error) {
+          var existing = document.getElementById("dbgflow-boot-error");
+          if (existing) {
+            existing.textContent = error;
+            return;
+          }
+
+          var pre = document.createElement("pre");
+          pre.id = "dbgflow-boot-error";
+          pre.textContent = error;
+          pre.style.position = "fixed";
+          pre.style.inset = "16px";
+          pre.style.padding = "16px";
+          pre.style.margin = "0";
+          pre.style.zIndex = "99999";
+          pre.style.overflow = "auto";
+          pre.style.whiteSpace = "pre-wrap";
+          pre.style.background = "#120909";
+          pre.style.color = "#f5f5f5";
+          pre.style.border = "1px solid rgba(239, 68, 68, 0.45)";
+          pre.style.borderRadius = "16px";
+          pre.style.font = "12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace";
+          document.body.appendChild(pre);
+        }
+
+        window.addEventListener("error", function (event) {
+          var message = event.error && event.error.stack
+            ? event.error.stack
+            : [event.message, event.filename, event.lineno, event.colno].filter(Boolean).join(" @ ");
+          if (shouldIgnoreBootError(message)) {
+            event.preventDefault();
+            return;
+          }
+          showBootError(String(message || "Unknown boot error"));
+        });
+
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason && event.reason.stack ? event.reason.stack : event.reason;
+          if (shouldIgnoreBootError(String(reason || ""))) {
+            event.preventDefault();
+            return;
+          }
+          showBootError(String(reason || "Unhandled promise rejection"));
+        });
+      })();
+    </script>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

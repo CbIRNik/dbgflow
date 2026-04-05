@@ -1,31 +1,14 @@
-# Publishing
+# Releasing
 
-This document is the release checklist for publishing `dbgflow`.
+This document is the release checklist for the next `dbgflow` release.
 
-## Package Names
+The first public release is already live:
 
-The original package name `dbg` is already occupied on crates.io.
+- [crates.io/crates/dbgflow](https://crates.io/crates/dbgflow)
+- [crates.io/crates/dbgflow-core](https://crates.io/crates/dbgflow-core)
+- [crates.io/crates/dbgflow-macros](https://crates.io/crates/dbgflow-macros)
 
-Prepared publishable package names:
-
-- `dbgflow`
-- `dbgflow-core`
-- `dbgflow-macros`
-
-Important:
-
-- the crates.io package name is `dbgflow`
-- the Rust library crate name is `dbgflow`
-- the CLI binary name is `dbgflow`
-
-That means users will write:
-
-```toml
-[dependencies]
-dbgflow = "0.1.0"
-```
-
-## Pre-publish Checklist
+## Pre-release Checklist
 
 1. Build frontend assets:
 
@@ -61,8 +44,8 @@ cargo package -p dbgflow --allow-dirty --list
 Important:
 
 - `dbgflow-core` and `dbgflow-macros` can be fully verified locally.
-- `dbgflow` depends on those packages as published registry dependencies, so `cargo package -p dbgflow` will fail until `dbgflow-core` and `dbgflow-macros` exist on crates.io.
-- For the top-level crate, use `cargo package -p dbgflow --allow-dirty --list` as the local contents check before publication.
+- `dbgflow` depends on those packages as published registry dependencies, so local packaging of the top-level crate is only meaningful after the dependency versions exist on crates.io.
+- Use `cargo package -p dbgflow --allow-dirty --list` as the fast local contents check before release.
 
 5. Optional local install smoke test:
 
@@ -70,6 +53,14 @@ Important:
 cargo install --path crates/dbg-cli --force
 dbgflow demo --serve
 ```
+
+## Version Bump
+
+Update the shared workspace version in the root `Cargo.toml` and make sure internal dependency versions still match:
+
+- `dbgflow-core`
+- `dbgflow-macros`
+- `dbgflow`
 
 ## Publish Order
 
@@ -98,6 +89,13 @@ Expected docs.rs pages:
 - `https://docs.rs/dbgflow-macros`
 
 The manifests already include `package.metadata.docs.rs`.
+
+If docs are missing right after publish, check:
+
+- `https://docs.rs/releases/queue?expand=1`
+- `https://docs.rs/releases/search?query=dbgflow`
+
+docs.rs often lags behind crates.io for a while after a fresh publish.
 
 ## Homebrew
 
@@ -150,8 +148,6 @@ brew install yourname/tap/dbgflow
 ```
 
 ## Release Hygiene
-
-Before the first public release, still decide:
 
 - versioning policy
 - release tagging convention such as `v0.1.0`

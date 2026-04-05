@@ -1,0 +1,99 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: d
+      - generic [ref=e7]:
+        - generic [ref=e8]: dbgflow
+        - generic [ref=e9]: "dbgflow demo: graph debugger session"
+    - generic [ref=e10]:
+      - button "Run Pipeline 13" [ref=e11]:
+        - img [ref=e12]
+        - generic [ref=e16]: Run Pipeline
+        - generic [ref=e17]: "13"
+        - img [ref=e18]
+      - generic [ref=e20]: completed
+  - complementary [ref=e22]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: node details
+          - generic [ref=e27]: Run Pipeline
+        - button [ref=e28]:
+          - img [ref=e29]
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - generic [ref=e37]: Function
+          - generic [ref=e38]: ran
+        - button "Run chain" [ref=e231]:
+          - img [ref=e232]
+          - text: Run chain
+        - generic [ref=e39]:
+          - generic [ref=e40]: Input
+          - generic [ref=e234]:
+            - generic [ref=e235]:
+              - generic [ref=e236]: state
+              - generic [ref=e237]: enter Run Pipeline
+            - generic [ref=e238]: type &mut dbgflow::demo::PipelineState
+        - generic [ref=e47]:
+          - generic [ref=e48]: Output
+          - generic [ref=e239]: No captured output for this node in the selected step range.
+  - application [ref=e61]:
+    - generic [ref=e63]:
+      - generic:
+        - generic:
+          - img
+          - img:
+            - group "Edge from dbgflow::demo::run_pipeline to dbgflow::demo::evaluate" [ref=e240] [cursor=pointer]
+          - img:
+            - group "Edge from dbgflow::demo::run_pipeline to dbgflow::demo::ingest" [ref=e243] [cursor=pointer]
+          - img:
+            - group "Edge from dbgflow::demo::run_pipeline to dbgflow::demo::normalize"
+          - img:
+            - group "Edge from test::pipeline::renders_failed_node to dbgflow::demo::evaluate" [ref=e246] [cursor=pointer]
+          - img:
+            - group "Edge from dbgflow::demo::ingest to dbgflow::demo::normalize" [ref=e249] [cursor=pointer]
+          - img:
+            - group "Edge from dbgflow::demo::normalize to dbgflow::demo::evaluate" [ref=e252] [cursor=pointer]
+          - img:
+            - group "Edge from dbgflow::demo::evaluate to dbgflow::demo::run_pipeline" [ref=e255] [cursor=pointer]
+        - generic:
+          - group [ref=e110]:
+            - generic [ref=e113]:
+              - generic [ref=e114]: fn
+              - generic [ref=e115]: Evaluate Verdict
+          - group [ref=e118]:
+            - generic [ref=e121]:
+              - generic [ref=e122]: fn
+              - generic [ref=e123]: Ingest Input
+          - group [ref=e126]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: fn
+              - generic [ref=e131]: Normalize Tokens
+          - group [active] [ref=e134]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: fn
+              - generic [ref=e139]: Run Pipeline
+          - group [ref=e142]:
+            - generic [ref=e145]:
+              - generic [ref=e146]: t
+              - generic [ref=e147]: renders_failed_node
+    - img
+  - generic [ref=e65]:
+    - generic [ref=e66]:
+      - button [ref=e67]:
+        - img [ref=e68]
+      - button [ref=e70]:
+        - img [ref=e258]
+      - button [ref=e73]:
+        - img [ref=e74]
+    - generic [ref=e76]:
+      - generic [ref=e77]:
+        - button "Step 10 / 13" [ref=e260]:
+          - text: Step 10 / 13
+          - img [ref=e79]
+        - button "1x" [ref=e81]:
+          - img [ref=e82]
+          - text: 1x
+          - img [ref=e85]
+      - slider [ref=e91]
+      - generic [ref=e230]: "exit: Evaluate Verdict"

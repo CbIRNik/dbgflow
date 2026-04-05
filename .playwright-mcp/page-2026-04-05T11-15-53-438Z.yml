@@ -1,0 +1,126 @@
+- generic:
+  - generic:
+    - main:
+      - generic:
+        - generic:
+          - generic: d
+          - generic:
+            - generic: dbgflow
+            - generic: "dbgflow demo: graph debugger session"
+        - generic:
+          - button:
+            - img
+            - generic: Run Pipeline
+            - generic: "13"
+            - img
+          - generic: completed
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - generic: node details
+              - generic: Ingest Input
+            - button:
+              - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: Function
+                    - generic: running
+                  - generic:
+                    - generic: Input
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: state
+                          - generic: enter Ingest Input
+                        - generic: type &mut dbgflow::demo::PipelineState
+                  - generic:
+                    - generic: Output
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Pipeline State
+                          - generic: input tokenized
+                        - generic: "PipelineState { input: \"Trace UIDebug test failure\", tokens: [ \"Trace\", \"UIDebug\", \"test\", \"failure\", ], normalized: [], verdict: None, }"
+      - generic:
+        - application:
+          - generic:
+            - generic:
+              - generic:
+                - img
+                - img:
+                  - group [ref=e150] [cursor=pointer]
+                - img:
+                  - group [ref=e153] [cursor=pointer]
+                - img
+                - img:
+                  - group [ref=e156] [cursor=pointer]
+                - img:
+                  - group [ref=e159] [cursor=pointer]
+                - img:
+                  - group [ref=e162] [cursor=pointer]
+                - img:
+                  - group [ref=e165] [cursor=pointer]
+                - generic:
+                  - group [ref=e110]:
+                    - generic [ref=e113]:
+                      - generic [ref=e114]: fn
+                      - generic [ref=e115]: Evaluate Verdict
+                  - group [ref=e118]:
+                    - generic [ref=e121]:
+                      - generic [ref=e122]: fn
+                      - generic [ref=e123]: Ingest Input
+                  - group [ref=e126]:
+                    - generic [ref=e129]:
+                      - generic [ref=e130]: fn
+                      - generic [ref=e131]: Normalize Tokens
+                  - group [ref=e134]:
+                    - generic [ref=e137]:
+                      - generic [ref=e138]: fn
+                      - generic [ref=e139]: Run Pipeline
+                  - group [ref=e142]:
+                    - generic [ref=e145]:
+                      - generic [ref=e146]: t
+                      - generic [ref=e147]: renders_failed_node
+          - img
+      - generic:
+        - generic:
+          - button:
+            - img
+          - button:
+            - img
+          - button:
+            - img
+        - generic:
+          - generic:
+            - button [expanded]:
+              - text: Step 3 / 13
+              - img
+            - button:
+              - img
+              - text: 1x
+              - img
+          - generic:
+            - generic:
+              - slider
+          - generic: "snapshot: Ingest Input"
+  - menu "Step 3 / 13" [active] [ref=e168]:
+    - group [ref=e172]:
+      - 'menuitemradio "1. enter: Run Pipeline" [ref=e173]': "1. enter: Run Pipeline"
+      - 'menuitemradio "2. enter: Ingest Input" [ref=e175]': "2. enter: Ingest Input"
+      - 'menuitemradio "3. snapshot: Ingest Input" [checked] [ref=e177]':
+        - img [ref=e180]
+        - text: "3. snapshot: Ingest Input"
+      - 'menuitemradio "4. exit: Ingest Input" [ref=e182]': "4. exit: Ingest Input"
+      - 'menuitemradio "5. enter: Normalize Tokens" [ref=e184]': "5. enter: Normalize Tokens"
+      - 'menuitemradio "6. snapshot: Normalize Tokens" [ref=e186]': "6. snapshot: Normalize Tokens"
+      - 'menuitemradio "7. exit: Normalize Tokens" [ref=e188]': "7. exit: Normalize Tokens"
+      - 'menuitemradio "8. enter: Evaluate Verdict" [ref=e190]': "8. enter: Evaluate Verdict"
+      - 'menuitemradio "9. snapshot: Evaluate Verdict" [ref=e192]': "9. snapshot: Evaluate Verdict"
+      - 'menuitemradio "10. exit: Evaluate Verdict" [ref=e194]': "10. exit: Evaluate Verdict"
+      - 'menuitemradio "11. exit: Run Pipeline" [ref=e196]': "11. exit: Run Pipeline"
+      - 'menuitemradio "12. test start: Evaluate Verdict" [ref=e198]': "12. test start: Evaluate Verdict"
+      - 'menuitemradio "13. test fail: Evaluate Verdict" [ref=e200]': "13. test fail: Evaluate Verdict"

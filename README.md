@@ -25,29 +25,26 @@ Core concepts:
 
 ## Install
 
-### CLI from the current repository
+### From crates.io
 
 ```bash
-cargo install --path crates/dbg-cli
+cargo add dbgflow
+cargo install dbgflow
 ```
 
-This installs the `dbgflow` binary into your Cargo bin directory.
+This adds the library to your project and installs the `dbgflow` CLI into your Cargo bin directory.
 
-### Library from crates.io
+### From this repository
 
-Once published, the dependency line for a real project will look like this:
+If you want to work from source instead of crates.io:
 
 ```toml
 [dependencies]
-dbgflow = "0.1.0"
+dbgflow = { path = "/absolute/path/to/dbg/crates/dbg-cli" }
 ```
 
-### Temporary local dependency
-
-Before publication, use a path dependency:
-
 ```toml
-[dependencies]
+[dev-dependencies]
 dbgflow = { path = "/absolute/path/to/dbg/crates/dbg-cli" }
 ```
 
@@ -112,9 +109,8 @@ dbgflow test --manifest-path /path/to/project/Cargo.toml --serve -- --lib
 
 1. Add the dependency:
 
-```toml
-[dependencies]
-dbgflow = "0.1.0"
+```bash
+cargo add dbgflow
 ```
 
 2. Import the prelude:
@@ -147,6 +143,32 @@ dbgflow test --manifest-path /path/to/project/Cargo.toml -- --lib
 dbgflow serve /abs/path/to/failing-session.json
 ```
 
+## Manual Capture
+
+If you want to trace a specific block of code without wrapping it into `#[dbg_test]`, use the capture helpers:
+
+```rust
+use dbgflow::prelude::*;
+
+fn main() -> std::io::Result<()> {
+    capture_and_serve("checkout flow", "127.0.0.1", 3000, || {
+        let mut state = State { counter: 0 };
+        step(&mut state);
+        classify(&state);
+    })?;
+
+    Ok(())
+}
+```
+
+For file-based capture instead of serving immediately:
+
+```rust
+dbgflow::capture_to_file("checkout flow", "artifacts/manual-session.json", || {
+    // traced code here
+})?;
+```
+
 ## Session Model
 
 Each run produces a JSON session that contains:
@@ -172,12 +194,12 @@ Current event types:
 
 ## Workspace Layout
 
-- `crates/dbg-cli`: publishable package `dbgflow`, exposing the `dbgflow` library crate and `dbgflow` CLI binary
-- `crates/dbg-core`: publishable package `dbgflow-core`, containing runtime, session model, and embedded UI server
-- `crates/dbg-macros`: publishable package `dbgflow-macros`, containing `#[trace]`, `#[ui_debug]`, and `#[dbg_test]`
+- `crates/dbg-cli`: package `dbgflow`, exposing the `dbgflow` library crate and `dbgflow` CLI binary
+- `crates/dbg-core`: package `dbgflow-core`, containing runtime, session model, and embedded UI server
+- `crates/dbg-macros`: package `dbgflow-macros`, containing `#[trace]`, `#[ui_debug]`, and `#[dbg_test]`
 - `web`: React Flow UI sources, built with `bun`
 - `docs/architecture.md`: system architecture notes
-- `docs/publishing.md`: crates.io and Homebrew publication checklist
+- `docs/publishing.md`: release checklist for future versions
 - `examples/real-project`: checked fixture demonstrating real-project integration
 
 ## UI Build
@@ -218,14 +240,11 @@ cargo run -p dbgflow -- demo --serve
 cargo run -p dbgflow -- test --manifest-path examples/real-project/Cargo.toml -- --lib
 ```
 
-## Publication
+## Published Packages
 
-The package name `dbg` is already taken on crates.io, so publication is prepared under:
+- crate: [crates.io/crates/dbgflow](https://crates.io/crates/dbgflow)
+- core runtime: [crates.io/crates/dbgflow-core](https://crates.io/crates/dbgflow-core)
+- proc macros: [crates.io/crates/dbgflow-macros](https://crates.io/crates/dbgflow-macros)
+- docs: [docs.rs/dbgflow](https://docs.rs/dbgflow)
 
-- `dbgflow`
-- `dbgflow-core`
-- `dbgflow-macros`
-
-The library crate name and binary are also `dbgflow`.
-
-For the exact publishing steps, see [docs/publishing.md](docs/publishing.md).
+For release steps for the next version, see [docs/publishing.md](docs/publishing.md).
