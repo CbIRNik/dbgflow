@@ -229,6 +229,9 @@
   .flex {
     display: flex;
   }
+  .hidden {
+    display: none;
+  }
   .inline-flex {
     display: inline-flex;
   }
@@ -301,14 +304,14 @@
   .w-10 {
     width: calc(var(--spacing) * 10);
   }
+  .w-25 {
+    width: calc(var(--spacing) * 25);
+  }
   .w-56 {
     width: calc(var(--spacing) * 56);
   }
   .w-\[1px\] {
     width: 1px;
-  }
-  .w-\[100px\] {
-    width: 100px;
   }
   .w-\[260px\] {
     width: 260px;

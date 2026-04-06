@@ -492,6 +492,15 @@ pre {
   cursor: grabbing;
 }
 
+.react-flow__edges {
+  pointer-events: none;
+  z-index: 1 !important;
+}
+
+.workflow-stage--move-nodes .react-flow__edges {
+  z-index: 1 !important;
+}
+
 .workflow-edge .react-flow__edge-path {
   stroke-linecap: round;
   transition:
@@ -668,14 +677,26 @@ pre {
   font-size: 12px;
 }
 
+/* Wrapped layout: 2 rows - top row has controls+selects+menu, bottom row has progress bar */
+.playback-bar--wrapped {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .playback-bar--wrapped .playback-bar__top-row {
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
 }
 
 .playback-bar--wrapped .playback-bar__toolbar {
-  flex: 1 1 100%;
+  flex: 1 1 auto;
   min-width: 0;
+  justify-content: flex-start;
 }
 
 .playback-bar--wrapped .playback-bar__separator {
@@ -685,19 +706,22 @@ pre {
 .playback-bar--wrapped .playback-bar__toolbar-group {
   flex: 1 1 auto;
   min-width: 0;
+  gap: 8px;
 }
 
-.playback-bar--compact .playback-bar__toolbar-group {
-  flex-wrap: wrap;
+.playback-bar--wrapped .playback-bar__toolbar-actions {
+  flex-shrink: 0;
+}
+
+.playback-bar--wrapped .playback-bar__timeline {
   width: 100%;
 }
 
+/* Compact layout: pickers shrink more aggressively */
 .playback-bar--compact .playback-bar__picker {
-  width: 100%;
-}
-
-.playback-bar--compact .playback-bar__toolbar {
-  gap: 10px;
+  flex: 1 1 0;
+  min-width: 80px;
+  max-width: 140px;
 }
 @media (max-width: 1180px) {
   .details-panel {

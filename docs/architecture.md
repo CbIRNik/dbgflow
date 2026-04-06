@@ -1,62 +1,126 @@
 # Architecture
 
-## Target shape
+## System Overview
 
-The product is split into four layers:
+dbgflow captures program execution as a graph and renders it in an interactive browser UI.
 
-1. Instrumentation layer:
-   `#[trace]` wraps function bodies and emits execution events.
-   `#[ui_debug]` marks data types that should appear as nodes and produce snapshots.
-2. Runtime layer:
-   A lightweight collector keeps the current session in memory, tracks the call stack, emits nodes, edges, value snapshots, and test events.
-3. Transport layer:
-   Sessions are serialized to JSON so they can be streamed, persisted, or replayed later.
-4. Presentation layer:
-   A browser UI renders the graph, execution timeline, and test-to-node failures.
-   The current prototype uses React Flow for node graph rendering and `dagre` for directed auto-layout.
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  Instrumentation    │────▶│      Runtime        │────▶│    Presentation     │
+│  (#[trace], etc.)   │     │  (Session Model)    │     │    (Browser UI)     │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+         │                           │                           │
+    proc macros              in-memory collector         React + React Flow
+    code generation          JSON serialization          dagre layout
+```
 
-## Why this decomposition
+## Layer Details
 
-- Proc macros give an ergonomic API inside user code.
-- The `dbgflow` package exposes both a CLI binary and a library facade, so consumers can depend on one crate instead of wiring `dbgflow-core` and `dbgflow-macros` manually.
-- The runtime stays library-sized and can later be embedded in `cargo test`, integration tests, binaries, or a language server.
-- A JSON session format keeps the UI decoupled from execution. This makes live mode and replay mode the same product surface.
+### 1. Instrumentation Layer
 
-## Event model
+Procedural macros transform user code to emit events:
 
-The current runtime emits:
+- **`#[trace]`** — Wraps function bodies with enter/exit events
+- **`#[ui_debug]`** — Derives snapshot capability for types
+- **`#[dbg_test]`** — Wraps tests with session capture and failure linking
 
-- function enter
-- function exit
-- value snapshot
-- test started
-- test passed
-- test failed
+### 2. Runtime Layer
 
-That is intentionally enough to prove the UI contract before adding stepping and breakpoints.
+The `dbgflow-core` crate provides:
 
-## Practical roadmap
+- **Session Model** — Nodes, edges, and events as serializable structs
+- **Collector** — Thread-local state tracking current call stack
+- **Snapshot API** — `emit_snapshot()` for capturing data state
 
-### Phase 1
+### 3. Transport Layer
 
-- Done: workspace split into `dbgflow-core`, `dbgflow-macros`, and `dbgflow`
-- Done: browser UI for graph and timeline
-- Done: manual test failure linkage to nodes
+Sessions serialize to JSON for:
 
-### Phase 2
+- File persistence (`dbgflow test`, `capture_to_file`)
+- HTTP response (`dbgflow serve`, embedded server)
+- Session merging (multiple tests into one UI)
 
-- Add `dbgflow test` wrapper around `cargo test --message-format json`
-- Correlate failing test frames with traced call stack
-- Stream events over websocket instead of only after-the-fact JSON dump
+### 4. Presentation Layer
 
-### Phase 3
+The browser UI provides:
 
-- Fine-grained mutation events for fields and collections
-- Breakpoints and pause/step controls
-- Deterministic session replay and diffing between successful and failing test runs
+- **Graph Canvas** — React Flow with custom node components
+- **Auto-Layout** — Dagre for directed graph positioning
+- **Playback Controls** — Timeline scrubbing and animated playback
+- **Details Panel** — Node inspection with syntax-highlighted source
 
-## Constraints to keep in mind
+## Package Structure
 
-- `#[trace]` must stay cheap enough for local development builds.
-- Value capture should degrade gracefully when a type is not serializable.
-- Async functions and multithreaded tests will require per-task or per-thread execution contexts, not only a single local stack.
+```
+dbgflow (crates/dbg-cli)
+├── re-exports dbgflow-core types
+├── re-exports dbgflow-macros macros
+├── CLI binary (demo, serve, test commands)
+└── session loading and merging
+
+dbgflow-core (crates/dbg-core)
+├── Session, Node, Edge, Event types
+├── Runtime state and event recording
+├── Embedded HTTP server
+└── Built UI assets (app.js, app.css)
+
+dbgflow-macros (crates/dbg-macros)
+├── #[trace] — function instrumentation
+├── #[ui_debug] — type snapshot derivation
+└── #[dbg_test] — test wrapper
+```
+
+## Data Flow
+
+1. User code calls a `#[trace]` function
+2. Macro-generated code records `FunctionEnter` event
+3. Function body executes, possibly calling `emit_snapshot()`
+4. Macro-generated code records `FunctionExit` event
+5. Session accumulates in thread-local storage
+6. Test completion or explicit save writes JSON
+7. CLI serves JSON via embedded HTTP server
+8. Browser fetches session and renders graph
+
+## Event Model
+
+Events form an ordered sequence representing execution:
+
+| Event | Description |
+|-------|-------------|
+| `function_enter` | Call started, captures arguments |
+| `function_exit` | Call returned, captures return value |
+| `value_snapshot` | Explicit data capture via `emit_snapshot()` |
+| `test_started` | Test began execution |
+| `test_passed` | Test completed successfully |
+| `test_failed` | Test assertion failed |
+
+Events reference nodes by ID and include call stack context via `call_id` and `parent_call_id`.
+
+## UI Architecture
+
+The React application manages:
+
+- **Session State** — Fetched from `/session.json` endpoint
+- **Pipeline Derivation** — Splits session into separate execution chains
+- **Graph Layout** — Computes node positions via dagre
+- **Playback State** — Current step, playing/paused, speed
+- **Selection State** — Active node, details panel visibility
+
+Key components:
+
+- `WorkflowCanvas` — React Flow wrapper with custom node types
+- `GraphNode` — Node renderer with status indicators
+- `NodeDetailsPanel` — Resizable sidebar with input/output display
+- `PlaybackControls` — Timeline and playback buttons
+
+## Design Decisions
+
+**Why proc macros?** — Ergonomic API without runtime overhead for uninstrumented code paths.
+
+**Why JSON sessions?** — Human-readable, easy to diff, works with standard tools.
+
+**Why embedded UI?** — Zero external dependencies for `dbgflow serve`.
+
+**Why dagre layout?** — Handles directed graphs well, produces readable left-to-right flows.
+
+**Why thread-local storage?** — Simple model that works for single-threaded tests (most common case).

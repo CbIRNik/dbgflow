@@ -1,40 +1,41 @@
-import { startTransition, useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { BASE_PLAYBACK_INTERVAL_MS } from "../utils/constants.js"
 import { resolvePlaybackStartIndex } from "../utils/graphUtils.js"
+import { usePlaybackStore } from "../store/playbackStore.js"
 
 export function usePlayback({
   sortedEvents,
   fullGraphModel,
   onPlaybackComplete,
 }) {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [playbackIndex, setPlaybackIndex] = useState(-1)
-  const [playbackSpeed, setPlaybackSpeed] = useState(1)
-  const [requestedStartNodeId, setRequestedStartNodeId] = useState("")
+  // Get state and actions from store
+  const isPlaying = usePlaybackStore((state) => state.isPlaying)
+  const playbackIndex = usePlaybackStore((state) => state.playbackIndex)
+  const playbackSpeed = usePlaybackStore((state) => state.playbackSpeed)
+  const requestedStartNodeId = usePlaybackStore((state) => state.requestedStartNodeId)
+  
+  const setIsPlaying = usePlaybackStore((state) => state.setIsPlaying)
+  const setPlaybackIndex = usePlaybackStore((state) => state.setPlaybackIndex)
+  const setRequestedStartNodeId = usePlaybackStore((state) => state.setRequestedStartNodeId)
+  const pause = usePlaybackStore((state) => state.pause)
+  const play = usePlaybackStore((state) => state.play)
+  const stepForward = usePlaybackStore((state) => state.stepForward)
+  const stepBackward = usePlaybackStore((state) => state.stepBackward)
+  const setSpeed = usePlaybackStore((state) => state.setPlaybackSpeed)
+
   const animationFrameRef = useRef(0)
   const lastTimestampRef = useRef(null)
   const accumulatedMsRef = useRef(0)
   const playbackIndexRef = useRef(playbackIndex)
 
-  const updatePlaybackIndex = useCallback(
-    (nextIndex) => {
-      const safeNextIndex = Number.isFinite(nextIndex) ? nextIndex : -1
-      playbackIndexRef.current = safeNextIndex
-      startTransition(() => {
-        setPlaybackIndex(safeNextIndex)
-      })
-    },
-    [],
-  )
-
-  const resetTimelineClock = useCallback(() => {
+  const resetTimelineClock = () => {
     if (animationFrameRef.current) {
       window.cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = 0
     }
     lastTimestampRef.current = null
     accumulatedMsRef.current = 0
-  }, [])
+  }
 
   useEffect(() => {
     playbackIndexRef.current = playbackIndex
@@ -52,9 +53,9 @@ export function usePlayback({
     }
 
     if (playbackIndex < 0 || playbackIndex >= sortedEvents.length) {
-      updatePlaybackIndex(sortedEvents.length - 1)
+      setPlaybackIndex(sortedEvents.length - 1)
     }
-  }, [isPlaying, playbackIndex, sortedEvents])
+  }, [isPlaying, playbackIndex, sortedEvents.length, setPlaybackIndex])
 
   useEffect(() => {
     if (!isPlaying || !sortedEvents.length) {
@@ -63,7 +64,7 @@ export function usePlayback({
     }
 
     if (playbackIndexRef.current < 0) {
-      updatePlaybackIndex(
+      setPlaybackIndex(
         resolvePlaybackStartIndex(
           sortedEvents,
           requestedStartNodeId,
@@ -104,7 +105,7 @@ export function usePlayback({
 
         if (nextSteps > 0) {
           accumulatedMsRef.current -= nextSteps * stepIntervalMs
-          updatePlaybackIndex(playbackIndexRef.current + nextSteps)
+          setPlaybackIndex(playbackIndexRef.current + nextSteps)
         }
       }
 
@@ -123,43 +124,20 @@ export function usePlayback({
     }
   }, [
     isPlaying,
-    sortedEvents,
+    sortedEvents.length,
     requestedStartNodeId,
     fullGraphModel,
     playbackSpeed,
     onPlaybackComplete,
+    setPlaybackIndex,
+    setIsPlaying,
+    setRequestedStartNodeId,
   ])
 
-  const play = useCallback(() => {
-    if (
-      !requestedStartNodeId &&
-      playbackIndexRef.current >= sortedEvents.length - 1
-    ) {
-      updatePlaybackIndex(0)
-    }
-    setIsPlaying(true)
-  }, [requestedStartNodeId, sortedEvents.length, updatePlaybackIndex])
-
-  const pause = useCallback(() => {
-    resetTimelineClock()
-    setIsPlaying(false)
-  }, [resetTimelineClock])
-
-  const stepBackward = useCallback(() => {
-    updatePlaybackIndex(Math.max(0, playbackIndexRef.current - 1))
-    setIsPlaying(false)
-  }, [updatePlaybackIndex])
-
-  const stepForward = useCallback(() => {
-    updatePlaybackIndex(
-      Math.min(sortedEvents.length - 1, playbackIndexRef.current + 1),
-    )
-    setIsPlaying(false)
-  }, [sortedEvents.length, updatePlaybackIndex])
-
-  const setSpeed = useCallback((speed) => {
-    setPlaybackSpeed(speed)
-  }, [])
+  // Wrap stepForward and stepBackward to include maxIndex
+  const wrappedStepForward = () => {
+    stepForward(sortedEvents.length - 1)
+  }
 
   return {
     isPlaying,
@@ -168,10 +146,10 @@ export function usePlayback({
     pause,
     play,
     setIsPlaying,
-    setPlaybackIndex: updatePlaybackIndex,
+    setPlaybackIndex,
     setRequestedStartNodeId,
     setSpeed,
-    stepForward,
+    stepForward: wrappedStepForward,
     stepBackward,
   }
 }

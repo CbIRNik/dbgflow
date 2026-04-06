@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { fetchSession, fetchStatus, triggerRerun as triggerServerRerun } from "../utils/api.js";
-import { DEFAULT_SERVER_STATUS, POLL_INTERVAL_MS } from "../utils/constants.js";
+import { POLL_INTERVAL_MS } from "../utils/constants.js";
+import { useSessionStore } from "../store/sessionStore.js";
 
 function isServerStatusEqual(left, right) {
   return (
@@ -14,12 +15,15 @@ function isServerStatusEqual(left, right) {
 
 /**
  * Hook for session fetching and polling.
- * @returns {{ session: object|null, serverStatus: object, error: string, triggerRerun: () => Promise<void> }}
+ * Manages session state in zustand store.
  */
 export function useSession() {
-  const [session, setSession] = useState(null);
-  const [error, setError] = useState("");
-  const [serverStatus, setServerStatus] = useState(DEFAULT_SERVER_STATUS);
+  const session = useSessionStore((state) => state.session);
+  const serverStatus = useSessionStore((state) => state.serverStatus);
+  const error = useSessionStore((state) => state.error);
+  const setSession = useSessionStore((state) => state.setSession);
+  const setServerStatus = useSessionStore((state) => state.setServerStatus);
+  const setError = useSessionStore((state) => state.setError);
 
   const generationRef = useRef(0);
   const sessionRef = useRef(null);
@@ -73,7 +77,7 @@ export function useSession() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [setSession, setServerStatus, setError]);
 
   const triggerRerun = async () => {
     if (!serverStatus.can_rerun) {

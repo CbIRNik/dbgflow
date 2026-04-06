@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Gauge, Menu, Pause, Play, StepBack, StepForward, Workflow } from "lucide-react"
 import { PLAYBACK_SPEEDS } from "../utils/constants.js"
+import { usePlaybackStore, useUIStore } from "../store"
 import {
   Button,
   DropdownMenu,
@@ -70,11 +71,11 @@ function SpeedDropdown({ onSpeedChange, playbackSpeed }) {
       onValueChange={(value) => onSpeedChange(Number(value))}
       value={String(playbackSpeed)}
     >
-      <SelectTrigger className="playback-bar__picker h-8 w-[100px] gap-1.5 text-xs">
+      <SelectTrigger className="playback-bar__picker h-8 w-25 gap-1.5 text-xs">
         <Gauge className="h-3 w-3 shrink-0" />
         <SelectValue>{playbackSpeed}x</SelectValue>
       </SelectTrigger>
-      <SelectContent className="max-h-72 w-[100px] border-border bg-popover/98">
+      <SelectContent className="max-h-72 w-25 border-border bg-popover/98">
         {PLAYBACK_SPEEDS.map((speed) => (
           <SelectItem className="py-2" key={speed} value={String(speed)}>
             {speed}x
@@ -132,28 +133,32 @@ function PlaybackOverflowMenu({
 
 export default function PlaybackControls({
   availableWidth,
-  canvasMode,
   currentStepLabel,
-  hasDetailsPanel,
-  isPlaying,
-  onPause,
-  onPlay,
-  onCanvasModeChange,
   onRunSelect,
-  onSkipEnd,
-  onSkipStart,
-  onSpeedChange,
   onStepChange,
-  playbackIndex,
-  playbackSpeed,
   runs,
   selectedRun,
   stepOptions,
   totalEvents,
 }) {
+  // Get state from zustand stores
+  const isPlaying = usePlaybackStore((state) => state.isPlaying)
+  const playbackIndex = usePlaybackStore((state) => state.playbackIndex)
+  const playbackSpeed = usePlaybackStore((state) => state.playbackSpeed)
+  const canvasMode = useUIStore((state) => state.canvasMode)
+  const isDetailsOpen = useUIStore((state) => state.isDetailsOpen)
+
+  // Get actions from stores
+  const pause = usePlaybackStore((state) => state.pause)
+  const play = usePlaybackStore((state) => state.play)
+  const stepForward = usePlaybackStore((state) => state.stepForward)
+  const stepBackward = usePlaybackStore((state) => state.stepBackward)
+  const setSpeed = usePlaybackStore((state) => state.setPlaybackSpeed)
+  const setCanvasMode = useUIStore((state) => state.setCanvasMode)
+
   const currentStep = Math.max(1, playbackIndex + 1)
-  const shouldWrapTopRow = availableWidth < (hasDetailsPanel ? 900 : 760)
-  const shouldCollapseAuxControls = availableWidth < (hasDetailsPanel ? 1120 : 860)
+  const shouldWrapTopRow = availableWidth < (isDetailsOpen ? 900 : 760)
+  const shouldCollapseAuxControls = availableWidth < (isDetailsOpen ? 1120 : 860)
   const [displayStep, setDisplayStep] = useState(currentStep)
   const displayStepRef = useRef(currentStep)
 
@@ -199,18 +204,18 @@ export default function PlaybackControls({
 
   const togglePlayback = () => {
     if (isPlaying) {
-      onPause()
+      pause()
       return
     }
 
-    onPlay()
+    play()
   }
 
   return (
     <footer
       className={[
         "playback-bar",
-        hasDetailsPanel ? "playback-bar--with-panel" : "",
+        isDetailsOpen ? "playback-bar--with-panel" : "",
         shouldWrapTopRow ? "playback-bar--wrapped" : "",
         shouldCollapseAuxControls ? "playback-bar--compact" : "",
       ]
@@ -220,7 +225,7 @@ export default function PlaybackControls({
       <div className="playback-bar__top-row">
         <div className="playback-bar__controls">
           <Button
-            onClick={onSkipStart}
+            onClick={stepBackward}
             size="icon"
             type="button"
             variant="outline"
@@ -239,7 +244,7 @@ export default function PlaybackControls({
               <Play className="h-3.5 w-3.5" />
             )}
           </Button>
-          <Button onClick={onSkipEnd} size="icon" type="button" variant="outline">
+          <Button onClick={() => stepForward(totalEvents - 1)} size="icon" type="button" variant="outline">
             <StepForward className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -265,14 +270,14 @@ export default function PlaybackControls({
             {shouldCollapseAuxControls ? (
               <PlaybackOverflowMenu
                 canvasMode={canvasMode}
-                onCanvasModeChange={onCanvasModeChange}
-                onSpeedChange={onSpeedChange}
+                onCanvasModeChange={setCanvasMode}
+                onSpeedChange={setSpeed}
                 playbackSpeed={playbackSpeed}
               />
             ) : (
               <>
                 <SpeedDropdown
-                  onSpeedChange={onSpeedChange}
+                  onSpeedChange={setSpeed}
                   playbackSpeed={playbackSpeed}
                 />
 
@@ -283,7 +288,7 @@ export default function PlaybackControls({
                 >
                   <Button
                     className={`playback-bar__mode-button ${canvasMode === "pan-canvas" ? "is-active" : ""}`}
-                    onClick={() => onCanvasModeChange("pan-canvas")}
+                    onClick={() => setCanvasMode("pan-canvas")}
                     size="sm"
                     type="button"
                     variant="outline"
@@ -292,7 +297,7 @@ export default function PlaybackControls({
                   </Button>
                   <Button
                     className={`playback-bar__mode-button ${canvasMode === "move-nodes" ? "is-active" : ""}`}
-                    onClick={() => onCanvasModeChange("move-nodes")}
+                    onClick={() => setCanvasMode("move-nodes")}
                     size="sm"
                     type="button"
                     variant="outline"
