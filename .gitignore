@@ -3,3 +3,6 @@
 /web/node_modules
 **/target
 **/artifacts
+.vscode
+.playwright-mcp
+.DS_Store
