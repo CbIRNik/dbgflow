@@ -301,6 +301,23 @@ pub mod demo {
         state.emit_snapshot("review summary prepared");
     }
 
+    /// A simulated async task that waits and returns a string
+    #[trace(name = "Async Child Task")]
+    pub async fn async_child_task(name: &str, delay_ms: u64) -> String {
+        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+        format!("child {} done", name)
+    }
+
+    /// An async pipeline that spawns parallel tasks
+    #[trace(name = "Async Parent Pipeline")]
+    pub async fn async_parent_pipeline() {
+        let t1 = tokio::spawn(async_child_task("Task_A", 10));
+        let t2 = tokio::spawn(async_child_task("Task_B", 15));
+        let t3 = tokio::spawn(async_child_task("Task_C", 5));
+        
+        let _ = tokio::join!(t1, t2, t3);
+    }
+
     /// Adds a synthetic failing test event to the demo session.
     pub fn simulate_test_failure() {
         runtime::record_test_started(
@@ -334,9 +351,25 @@ pub mod demo {
         run_pipeline(&mut state);
         simulate_test_failure();
 
+
         let mut review_state = PipelineState::review_sample();
         run_review_pipeline(&mut review_state);
         simulate_test_success();
+        
+        // Run async parallel tasks
+        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
+        rt.block_on(async_parent_pipeline());
+        
+        // Add a mock test outcome for the async pipeline
+        super::runtime::record_test_started(
+            "pipeline::async_parallel_execution",
+            concat!(module_path!(), "::async_parent_pipeline"),
+        );
+        super::runtime::record_test_passed(
+            "pipeline::async_parallel_execution",
+            concat!(module_path!(), "::async_parent_pipeline"),
+        );
+
     }
 
     /// Runs the demo, persists it to disk, and optionally serves it.

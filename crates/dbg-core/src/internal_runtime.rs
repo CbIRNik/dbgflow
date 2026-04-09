@@ -183,8 +183,8 @@ pub mod runtime {
                     &mut state,
                     Node {
                         id: meta.id.to_owned(),
-                function_id: None,
-                call_id: None,
+                        function_id: None,
+                        call_id: None,
                         label: meta.label.to_owned(),
                         kind: NodeKind::Function,
                         module_path: meta.module_path.to_owned(),
@@ -599,9 +599,8 @@ pub mod runtime {
         values: Vec<ValueSlot>,
         inner: F,
     ) -> InstrumentedFuture<F> {
-        let parent_call_id = CALL_STACK.with(|stack| {
-            stack.borrow().last().map(|frame| frame.call_id)
-        });
+        let parent_call_id =
+            CALL_STACK.with(|stack| stack.borrow().last().map(|frame| frame.call_id));
 
         InstrumentedFuture {
             inner,
@@ -690,7 +689,10 @@ pub mod runtime {
                         parent_call_id: *this.parent_call_id,
                         node_id: this.node_id.to_owned(),
                         kind: EventKind::FunctionExit,
-                        title: format!("return {}", this.node_id.rsplit("::").next().unwrap_or(this.node_id)),
+                        title: format!(
+                            "return {}",
+                            this.node_id.rsplit("::").next().unwrap_or(this.node_id)
+                        ),
                         values: vec![ValueSlot {
                             name: "result".to_owned(),
                             preview: match &res {

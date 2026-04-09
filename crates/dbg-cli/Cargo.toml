@@ -27,3 +27,4 @@ all-features = true
 clap.workspace = true
 dbgflow-core = { path = "../dbg-core", version = "0.2.0" }
 dbgflow-macros = { path = "../dbg-macros", version = "0.2.0" }
+tokio = { version = "1.0", features = ["full"] }
