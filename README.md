@@ -12,7 +12,7 @@ A graph-first debugger for Rust that visualizes program execution as an interact
 
 ## Demo
 
-![Demo](./demo.mp4)
+<video src="./demo.mp4" controls muted autoplay loop style="max-width: 100%;"></video>
 
 ## Packages
 
