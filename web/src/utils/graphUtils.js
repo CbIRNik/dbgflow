@@ -48,8 +48,6 @@ function buildBaseGraphModel(session, selectedRun) {
 
   const firstSeenSeqByNode = new Map()
   const previousFocusedNodeIdBySeq = new Map()
-  let previousEnteredNodeId = null
-
   for (const event of selectedRun.events) {
     const focusNodeId = focusNodeIdForEvent(
       event,
@@ -67,15 +65,16 @@ function buildBaseGraphModel(session, selectedRun) {
     }
 
     if (event.kind === "function_enter") {
-      if (previousEnteredNodeId && previousEnteredNodeId !== focusNodeId) {
-        previousFocusedNodeIdBySeq.set(event.seq, previousEnteredNodeId)
+      const parentNodeId = event.parent_call_id != null ? nodeIdByCallId.get(event.parent_call_id) : null;
+      if (parentNodeId && parentNodeId !== focusNodeId) {
+        previousFocusedNodeIdBySeq.set(event.seq, parentNodeId)
       }
-      previousEnteredNodeId = focusNodeId
     } else if (String(event.kind).startsWith("test_")) {
-      previousFocusedNodeIdBySeq.set(
-        event.seq,
-        previousEnteredNodeId ?? focusNodeId,
-      )
+      // test links can just use what link they have
+      const parentNodeId = testLinkByTestNode.get(event.node_id);
+      if (parentNodeId) {
+        previousFocusedNodeIdBySeq.set(event.seq, parentNodeId);
+      }
     }
   }
 
@@ -368,7 +367,6 @@ function buildRenderEdges(
 ) {
   const renderEdges = []
   const edgeKeys = new Set()
-  let previousEnteredNodeId = null
 
   for (const event of events) {
     if (event.kind !== "function_enter") {
@@ -386,11 +384,12 @@ function buildRenderEdges(
       continue
     }
 
-    if (previousEnteredNodeId && previousEnteredNodeId !== focusNodeId) {
-      const edgeKey = `${previousEnteredNodeId}::${focusNodeId}::control_flow`
+    const parentNodeId = event.parent_call_id != null ? nodeIdByCallId.get(event.parent_call_id) : null;
+    if (parentNodeId && parentNodeId !== focusNodeId && renderNodeIds.has(parentNodeId)) {
+      const edgeKey = `${parentNodeId}::${focusNodeId}::control_flow`
       if (!edgeKeys.has(edgeKey)) {
         renderEdges.push({
-          from: previousEnteredNodeId,
+          from: parentNodeId,
           to: focusNodeId,
           kind: "control_flow",
           label: null,
@@ -398,8 +397,6 @@ function buildRenderEdges(
         edgeKeys.add(edgeKey)
       }
     }
-
-    previousEnteredNodeId = focusNodeId
   }
 
   for (const edge of allRunEdges) {
