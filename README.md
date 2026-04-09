@@ -10,6 +10,10 @@ A graph-first debugger for Rust that visualizes program execution as an interact
 - **Test Integration** — Link test failures directly to the traced function that caused them
 - **Browser UI** — Modern React-based interface with syntax highlighting and collapsible data views
 
+## Demo
+
+![Demo](./demo.gif)
+
 ## Packages
 
 dbgflow is published on crates.io as three packages:
