@@ -12,7 +12,7 @@ A graph-first debugger for Rust that visualizes program execution as an interact
 
 ## Demo
 
-![Demo](./demo.gif)
+![Demo](./demo.mp4)
 
 ## Packages
 
