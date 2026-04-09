@@ -19,5 +19,6 @@ name = "dbgflow_core"
 all-features = true
 
 [dependencies]
+pin-project-lite = "0.2.17"
 serde.workspace = true
 serde_json.workspace = true

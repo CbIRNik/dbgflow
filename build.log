@@ -1,0 +1,38 @@
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling serde_core v1.0.228
+   Compiling utf8parse v0.2.2
+   Compiling equivalent v1.0.2
+   Compiling hashbrown v0.16.1
+   Compiling winnow v1.0.1
+   Compiling zmij v1.0.21
+   Compiling anstyle-parse v1.0.0
+   Compiling serde_json v1.0.149
+   Compiling anstyle v1.0.14
+   Compiling colorchoice v1.0.5
+   Compiling prettyplease v0.2.37
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle-query v1.1.5
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde v1.0.228
+   Compiling anstream v1.0.0
+   Compiling indexmap v2.13.1
+   Compiling clap_lex v1.1.0
+   Compiling memchr v2.8.0
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling heck v0.5.0
+   Compiling itoa v1.0.18
+   Compiling strsim v0.11.1
+   Compiling pin-project-lite v0.2.17
+   Compiling clap_builder v4.6.0
+   Compiling toml_edit v0.25.10+spec-1.1.0
+   Compiling syn v2.0.117
+   Compiling proc-macro-crate v3.5.0
+   Compiling serde_derive v1.0.228
+   Compiling clap_derive v4.6.0
+   Compiling dbgflow-macros v0.2.0 (/Users/ivanlylin/projects/dbg/crates/dbg-macros)
+   Compiling clap v4.6.0
+   Compiling dbgflow-core v0.2.0 (/Users/ivanlylin/projects/dbg/crates/dbg-core)
+   Compiling dbgflow v0.2.0 (/Users/ivanlylin/projects/dbg/crates/dbg-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 27.21s

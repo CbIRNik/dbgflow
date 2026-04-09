@@ -16,6 +16,12 @@ use serde::{Deserialize, Serialize};
 pub struct Node {
     /// Stable node identifier within a session.
     pub id: String,
+    /// Original traced function identifier when this node represents a specific invocation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub function_id: Option<String>,
+    /// Call identifier for traced function invocations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub call_id: Option<u64>,
     /// Human-readable label shown in the UI.
     pub label: String,
     /// Semantic node type.

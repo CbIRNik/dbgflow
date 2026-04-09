@@ -1,0 +1,30 @@
+    Checking dbgflow-core v0.2.0 (/Users/ivanlylin/projects/dbg/crates/dbg-core)
+error[E0063]: missing field `parent_call_id` in initializer of `Event`
+   --> crates/dbg-core/src/internal_runtime.rs:371:13
+    |
+371 |             Event {
+    |             ^^^^^ missing `parent_call_id`
+
+error[E0063]: missing fields `call_id` and `parent_call_id` in initializer of `Event`
+   --> crates/dbg-core/src/internal_runtime.rs:556:13
+    |
+556 |             Event {
+    |             ^^^^^ missing `call_id` and `parent_call_id`
+
+error[E0063]: missing field `call_id` in initializer of `InstrumentedFuture<_>`
+   --> crates/dbg-core/src/internal_runtime.rs:603:9
+    |
+603 |         InstrumentedFuture {
+    |         ^^^^^^^^^^^^^^^^^^ missing `call_id`
+
+warning: unused variable: `result_preview`
+   --> crates/dbg-core/src/internal_runtime.rs:685:21
+    |
+685 |                 let result_preview = super::type_preview(&res);
+    |                     ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_result_preview`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+For more information about this error, try `rustc --explain E0063`.
+warning: `dbgflow-core` (lib) generated 1 warning
+error: could not compile `dbgflow-core` (lib) due to 3 previous errors; 1 warning emitted
