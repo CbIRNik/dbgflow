@@ -1,10 +1,24 @@
 import "prismjs"
 import "prismjs/components/prism-rust"
 import "prismjs/themes/prism-tomorrow.css"
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { createRoot } from "react-dom/client"
 import "./styles.css"
-import { usePipelineStore, useUIStore, useSessionStore, usePlaybackStore, DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH } from "./store"
+import {
+  usePipelineStore,
+  useUIStore,
+  useSessionStore,
+  usePlaybackStore,
+  DEFAULT_PANEL_WIDTH,
+  MIN_PANEL_WIDTH,
+} from "./store"
 import { triggerRerun as triggerServerRerun } from "./utils/api.js"
 import { deriveChainRuns } from "./utils/chainUtils.js"
 import {
@@ -29,11 +43,17 @@ const RUN_ROUTE_PREFIX = "#/pipelines/"
 const PANEL_MAX_WIDTH_RATIO = 0.7
 
 function getMaxPanelWidth(viewportWidth) {
-  return Math.max(MIN_PANEL_WIDTH + 120, Math.floor(viewportWidth * PANEL_MAX_WIDTH_RATIO))
+  return Math.max(
+    MIN_PANEL_WIDTH + 120,
+    Math.floor(viewportWidth * PANEL_MAX_WIDTH_RATIO),
+  )
 }
 
 function clampPanelWidth(width, viewportWidth) {
-  return Math.max(MIN_PANEL_WIDTH, Math.min(getMaxPanelWidth(viewportWidth), width))
+  return Math.max(
+    MIN_PANEL_WIDTH,
+    Math.min(getMaxPanelWidth(viewportWidth), width),
+  )
 }
 
 function readRunRouteId() {
@@ -63,7 +83,7 @@ function App() {
   // Session state from zustand
   const { session, serverStatus, error } = useSession()
   const setServerStatus = useSessionStore((state) => state.setServerStatus)
-  
+
   // UI state from zustand
   const selectedNodeId = useUIStore((state) => state.selectedNodeId)
   const detailsNodeId = useUIStore((state) => state.detailsNodeId)
@@ -71,31 +91,36 @@ function App() {
   const canvasMode = useUIStore((state) => state.canvasMode)
   const viewportWidth = useUIStore((state) => state.viewportWidth)
   const isDetailsOpen = useUIStore((state) => state.isDetailsOpen)
-  
+
   const setSelectedNodeId = useUIStore((state) => state.setSelectedNodeId)
   const setDetailsNodeId = useUIStore((state) => state.setDetailsNodeId)
   const setDetailsPanelWidth = useUIStore((state) => state.setDetailsPanelWidth)
   const setViewportWidth = useUIStore((state) => state.setViewportWidth)
   const openDetails = useUIStore((state) => state.openDetails)
   const dismissDetails = useUIStore((state) => state.dismissDetails)
-  
+
   // Playback state from zustand (via usePlayback hook)
-  const setRequestedStartNodeId = usePlaybackStore((state) => state.setRequestedStartNodeId)
+  const setRequestedStartNodeId = usePlaybackStore(
+    (state) => state.setRequestedStartNodeId,
+  )
   const setPlaybackIndex = usePlaybackStore((state) => state.setPlaybackIndex)
   const pause = usePlaybackStore((state) => state.pause)
   const play = usePlaybackStore((state) => state.play)
-  
+
   // Pipeline store
   const getPipelineState = usePipelineStore((state) => state.getPipelineState)
   const setPipelineState = usePipelineStore((state) => state.setPipelineState)
-  
+
   // Local state
   const [routeRunId, setRouteRunId] = useState(() => readRunRouteId())
   const [savedNodePositions, setSavedNodePositions] = useState(null)
-  
+
   const chainRuns = useMemo(() => deriveChainRuns(session), [session])
   const isRestoringState = useRef(false)
-  const maxPanelWidth = useMemo(() => getMaxPanelWidth(viewportWidth), [viewportWidth])
+  const maxPanelWidth = useMemo(
+    () => getMaxPanelWidth(viewportWidth),
+    [viewportWidth],
+  )
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -200,14 +225,17 @@ function App() {
     sortedEvents,
   })
 
-  const handleOpenDetails = useCallback((nodeId) => {
-    openDetails(nodeId)
-    if (selectedRun?.id) {
-      setPipelineState(selectedRun.id, {
-        isDetailsOpen: true,
-      })
-    }
-  }, [selectedRun?.id, setPipelineState, openDetails])
+  const handleOpenDetails = useCallback(
+    (nodeId) => {
+      openDetails(nodeId)
+      if (selectedRun?.id) {
+        setPipelineState(selectedRun.id, {
+          isDetailsOpen: true,
+        })
+      }
+    },
+    [selectedRun?.id, setPipelineState, openDetails],
+  )
 
   const handleDismissDetails = useCallback(() => {
     dismissDetails()
@@ -257,11 +285,9 @@ function App() {
       return
     }
 
+    // Keep playback focus in the graph, but do not auto-switch details panel target.
     setSelectedNodeId(activePlaybackNodeId)
-    if (isDetailsOpen) {
-      setDetailsNodeId(activePlaybackNodeId)
-    }
-  }, [activePlaybackNodeId, isDetailsOpen])
+  }, [activePlaybackNodeId, setSelectedNodeId])
 
   const triggerRun = useCallback(
     async (startNodeId) => {
@@ -407,7 +433,10 @@ function App() {
     isRestoringState.current = true
     const savedState = getPipelineState(selectedRun.id)
     setDetailsPanelWidth(
-      clampPanelWidth(savedState.panelWidth ?? DEFAULT_PANEL_WIDTH, viewportWidth),
+      clampPanelWidth(
+        savedState.panelWidth ?? DEFAULT_PANEL_WIDTH,
+        viewportWidth,
+      ),
     )
     useUIStore.setState({ canvasMode: savedState.canvasMode ?? "pan-canvas" })
     setSavedNodePositions(savedState.nodePositions ?? null)
@@ -425,7 +454,17 @@ function App() {
     setTimeout(() => {
       isRestoringState.current = false
     }, 0)
-  }, [getPipelineState, selectedRun?.id, setPlaybackIndex, setSpeed, setRequestedStartNodeId, viewportWidth, setDetailsPanelWidth, setSelectedNodeId, setDetailsNodeId])
+  }, [
+    getPipelineState,
+    selectedRun?.id,
+    setPlaybackIndex,
+    setSpeed,
+    setRequestedStartNodeId,
+    viewportWidth,
+    setDetailsPanelWidth,
+    setSelectedNodeId,
+    setDetailsNodeId,
+  ])
 
   useEffect(() => {
     if (!selectedRun || isRestoringState.current || !nodePositionSnapshot) {
@@ -458,11 +497,14 @@ function App() {
       return undefined
     }
 
-    const timeoutId = window.setTimeout(() => {
-      setPipelineState(selectedRun.id, {
-        playbackIndex,
-      })
-    }, isPlaying ? 180 : 0)
+    const timeoutId = window.setTimeout(
+      () => {
+        setPipelineState(selectedRun.id, {
+          playbackIndex,
+        })
+      },
+      isPlaying ? 180 : 0,
+    )
 
     return () => {
       window.clearTimeout(timeoutId)
@@ -480,10 +522,13 @@ function App() {
     [navigateToRun, selectedRun?.id],
   )
 
-  const handleStepChange = useCallback((newIndex) => {
-    setPlaybackIndex(newIndex)
-    pause()
-  }, [setPlaybackIndex, pause])
+  const handleStepChange = useCallback(
+    (newIndex) => {
+      setPlaybackIndex(newIndex)
+      pause()
+    },
+    [setPlaybackIndex, pause],
+  )
 
   const currentNodeData = useMemo(() => {
     if (!resolvedDetailsNodeId || !graphModel) {

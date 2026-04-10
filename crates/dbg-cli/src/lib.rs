@@ -118,31 +118,45 @@ fn load_saved_session_dir(dir: &Path) -> std::io::Result<Session> {
         let seq_offset = next_seq.saturating_sub(1);
         let call_id_offset = next_call_id.saturating_sub(1);
 
-        let max_call_id = session.events.iter().filter_map(|event| event.call_id).max();
+        let max_call_id = session
+            .events
+            .iter()
+            .filter_map(|event| event.call_id)
+            .max();
 
-        merged.nodes.extend(session.nodes.into_iter().map(|mut node| {
-            node.id = format!("{prefix}{}", node.id);
-            node
-        }));
+        merged
+            .nodes
+            .extend(session.nodes.into_iter().map(|mut node| {
+                node.id = format!("{prefix}{}", node.id);
+                node
+            }));
 
-        merged.edges.extend(session.edges.into_iter().map(|mut edge| {
-            edge.from = format!("{prefix}{}", edge.from);
-            edge.to = format!("{prefix}{}", edge.to);
-            edge
-        }));
+        merged
+            .edges
+            .extend(session.edges.into_iter().map(|mut edge| {
+                edge.from = format!("{prefix}{}", edge.from);
+                edge.to = format!("{prefix}{}", edge.to);
+                edge
+            }));
 
-        merged.events.extend(session.events.into_iter().map(|mut event| {
-            event.seq += seq_offset;
-            event.call_id = event.call_id.map(|call_id| call_id + call_id_offset);
-            event.parent_call_id = event
-                .parent_call_id
-                .map(|call_id| call_id + call_id_offset);
-            event.node_id = format!("{prefix}{}", event.node_id);
-            event
-        }));
+        merged
+            .events
+            .extend(session.events.into_iter().map(|mut event| {
+                event.seq += seq_offset;
+                event.call_id = event.call_id.map(|call_id| call_id + call_id_offset);
+                event.parent_call_id = event.parent_call_id.map(|call_id| call_id + call_id_offset);
+                event.node_id = format!("{prefix}{}", event.node_id);
+                event
+            }));
 
-        next_seq = merged.events.last().map(|event| event.seq + 1).unwrap_or(next_seq);
-        next_call_id = max_call_id.map(|call_id| call_id + call_id_offset + 1).unwrap_or(next_call_id);
+        next_seq = merged
+            .events
+            .last()
+            .map(|event| event.seq + 1)
+            .unwrap_or(next_seq);
+        next_call_id = max_call_id
+            .map(|call_id| call_id + call_id_offset + 1)
+            .unwrap_or(next_call_id);
     }
 
     Ok(merged)
@@ -311,14 +325,14 @@ pub mod demo {
     /// An async pipeline that spawns parallel tasks
     #[trace(name = "Async Parent Pipeline")]
     pub async fn async_parent_pipeline() {
-        let t1 = tokio::spawn(async_child_task("Task_A", 10));
-        let t2 = tokio::spawn(async_child_task("Task_B", 15));
-        let t3 = tokio::spawn(async_child_task("Task_C", 5));
-        
-        let _ = tokio::join!(t1, t2, t3);
+        let f1 = async_child_task("Task_A", 10);
+        let f2 = async_child_task("Task_B", 15);
+        let f3 = async_child_task("Task_C", 5);
+
+        let _ = tokio::join!(f1, f2, f3);
     }
 
-    /// Adds a synthetic failing test event to the demo session.
+    /// A simulated test failure
     pub fn simulate_test_failure() {
         runtime::record_test_started(
             "pipeline::renders_failed_node",
@@ -351,15 +365,17 @@ pub mod demo {
         run_pipeline(&mut state);
         simulate_test_failure();
 
-
         let mut review_state = PipelineState::review_sample();
         run_review_pipeline(&mut review_state);
         simulate_test_success();
-        
+
         // Run async parallel tasks
-        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         rt.block_on(async_parent_pipeline());
-        
+
         // Add a mock test outcome for the async pipeline
         super::runtime::record_test_started(
             "pipeline::async_parallel_execution",
@@ -369,7 +385,6 @@ pub mod demo {
             "pipeline::async_parallel_execution",
             concat!(module_path!(), "::async_parent_pipeline"),
         );
-
     }
 
     /// Runs the demo, persists it to disk, and optionally serves it.
@@ -557,7 +572,11 @@ mod tests {
         assert_eq!(merged.edges.len(), 1);
         assert_eq!(merged.events.len(), 5);
         assert_eq!(
-            merged.events.iter().map(|event| event.seq).collect::<Vec<_>>(),
+            merged
+                .events
+                .iter()
+                .map(|event| event.seq)
+                .collect::<Vec<_>>(),
             vec![1, 2, 3, 4, 5]
         );
         assert_eq!(
@@ -568,10 +587,12 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![1, 1, 2, 2]
         );
-        assert!(merged
-            .nodes
-            .iter()
-            .all(|node| node.id.starts_with("bundle:")));
+        assert!(
+            merged
+                .nodes
+                .iter()
+                .all(|node| node.id.starts_with("bundle:"))
+        );
 
         std::fs::remove_dir_all(temp_root).expect("temp dir should be removed");
     }

@@ -135,7 +135,9 @@ function containsCollapsiblePreviewBlock(entries) {
 function buildCollapsedBlockLine(block) {
   const bracket = block.kind === "array" ? "[" : "{"
   const summaryLabel = block.kind === "array" ? "items" : "fields"
-  const prefix = block.openLine.slice(0, block.openLine.lastIndexOf(bracket)).trimEnd()
+  const prefix = block.openLine
+    .slice(0, block.openLine.lastIndexOf(bracket))
+    .trimEnd()
   const indent = block.openLine.match(/^\s*/)?.[0] ?? ""
   const suffix = block.closeLine.trimEnd().endsWith(",") ? "," : ""
   const visibleEntryCount = countVisiblePreviewEntries(block.children)
@@ -210,19 +212,27 @@ function formatSourceCode(content) {
       const trimmed = line.trim()
       const shouldWrap =
         trimmed.length > 72 &&
-        (trimmed.includes(".await") || (trimmed.match(/\.[A-Za-z_][A-Za-z0-9_]*\s*\(/g) ?? []).length >= 2)
+        (trimmed.includes(".await") ||
+          (trimmed.match(/\.[A-Za-z_][A-Za-z0-9_]*\s*\(/g) ?? []).length >= 2)
 
       if (!shouldWrap) {
         return [line]
       }
 
-      const segments = line.split(/(?=\.[A-Za-z_][A-Za-z0-9_]*\s*\(|\.await\b)/g)
+      const segments = line.split(
+        /(?=\.[A-Za-z_][A-Za-z0-9_]*\s*\(|\.await\b)/g,
+      )
       if (segments.length < 3) {
         return [line]
       }
 
       const indent = line.match(/^\s*/)?.[0] ?? ""
-      return [segments[0], ...segments.slice(1).map((segment) => `${indent}    ${segment.trimStart()}`)]
+      return [
+        segments[0],
+        ...segments
+          .slice(1)
+          .map((segment) => `${indent}    ${segment.trimStart()}`),
+      ]
     })
     .join("\n")
 }
@@ -250,7 +260,7 @@ function highlightData(content, preferredLanguage = null) {
     return window.Prism.highlight(
       content,
       window.Prism.languages.javascript,
-      "javascript"
+      "javascript",
     )
   } catch {
     // Not valid JSON, continue
@@ -263,7 +273,10 @@ function highlightData(content, preferredLanguage = null) {
     return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
   }
 
-  if (/^fn\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(/.test(trimmed) && window.Prism.languages.rust) {
+  if (
+    /^fn\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(/.test(trimmed) &&
+    window.Prism.languages.rust
+  ) {
     return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
   }
 
@@ -274,16 +287,19 @@ function highlightData(content, preferredLanguage = null) {
     return window.Prism.highlight(
       content,
       window.Prism.languages.javascript,
-      "javascript"
+      "javascript",
     )
   }
 
   // Check for Rust type names (primitives, generics, references)
   // Patterns: i32, String, Vec<T>, Option<T>, Result<T, E>, &str, &mut T, Box<T>
-  const isRustType = /^(&\s*(mut\s+)?)?([iu](8|16|32|64|128|size)|f(32|64)|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell|HashMap|HashSet|BTreeMap|BTreeSet|Cow|Pin|PhantomData)(<.*>)?$/.test(trimmed)
-    || /^[A-Z][a-zA-Z0-9]*(<.*>)?$/.test(trimmed)  // Custom type names like MyStruct<T>
-    || /^&(mut\s+)?[a-zA-Z]/.test(trimmed)  // References like &str, &mut T
-    || /^\(.*\)$/.test(trimmed)  // Tuples like (i32, String)
+  const isRustType =
+    /^(&\s*(mut\s+)?)?([iu](8|16|32|64|128|size)|f(32|64)|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell|HashMap|HashSet|BTreeMap|BTreeSet|Cow|Pin|PhantomData)(<.*>)?$/.test(
+      trimmed,
+    ) ||
+    /^[A-Z][a-zA-Z0-9]*(<.*>)?$/.test(trimmed) || // Custom type names like MyStruct<T>
+    /^&(mut\s+)?[a-zA-Z]/.test(trimmed) || // References like &str, &mut T
+    /^\(.*\)$/.test(trimmed) // Tuples like (i32, String)
   if (isRustType && window.Prism.languages.rust) {
     return window.Prism.highlight(content, window.Prism.languages.rust, "rust")
   }
@@ -294,7 +310,7 @@ function highlightData(content, preferredLanguage = null) {
     return window.Prism.highlight(
       content,
       window.Prism.languages.javascript,
-      "javascript"
+      "javascript",
     )
   }
 
@@ -406,14 +422,49 @@ function recordList(items, emptyLabel) {
       <div
         className="details-panel__record"
         key={`${item.name}-${item.title}-${index}`}
-        >
-          <div className="details-panel__record-head">
-            <span>{item.name}</span>
-            {item.title ? <span>{item.title}</span> : null}
-          </div>
-          <PreviewBlock content={item.preview} preferredLanguage={item.language} />
+      >
+        <div className="details-panel__record-head">
+          <span>{item.name}</span>
+          {item.title ? <span>{item.title}</span> : null}
+        </div>
+        <PreviewBlock
+          content={item.preview}
+          preferredLanguage={item.language}
+        />
       </div>
     )
+  })
+}
+
+function humanEventKind(kind) {
+  return String(kind).replaceAll("_", " ")
+}
+
+function buildStepChanges(events) {
+  const sorted = [...(events ?? [])].sort((left, right) => left.seq - right.seq)
+
+  return sorted.map((event) => {
+    const values = event.values ?? []
+
+    if (!values.length) {
+      return {
+        name: `#${event.seq} ${humanEventKind(event.kind)}`,
+        title: event.title,
+        preview: "No captured values",
+        language: null,
+      }
+    }
+
+    const preview = values
+      .map((value) => `${value.name}: ${value.preview}`)
+      .join("\n\n")
+
+    return {
+      name: `#${event.seq} ${humanEventKind(event.kind)}`,
+      title: event.title,
+      preview,
+      language: null,
+    }
   })
 }
 
@@ -452,7 +503,10 @@ export default function NodeDetailsPanel({
         return
       }
 
-      const nextWidth = dragStateRef.current.startWidth + event.clientX - dragStateRef.current.startX
+      const nextWidth =
+        dragStateRef.current.startWidth +
+        event.clientX -
+        dragStateRef.current.startX
       const clampedWidth = Math.max(minWidth, Math.min(maxWidth, nextWidth))
       onResize(clampedWidth)
     }
@@ -563,6 +617,16 @@ export default function NodeDetailsPanel({
                 {recordList(
                   nodeData.outputData,
                   "No captured output for this node in the selected step range.",
+                )}
+              </div>
+            </section>
+
+            <section className="details-panel__section">
+              {sectionTitle("Step Changes")}
+              <div className="details-panel__records">
+                {recordList(
+                  buildStepChanges(nodeData.events),
+                  "No step-level changes captured for this node in the selected step range.",
                 )}
               </div>
             </section>

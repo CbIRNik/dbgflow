@@ -241,7 +241,7 @@ pub mod runtime {
         }
 
         /// Records a successful function return.
-        pub fn finish_return<T>(&mut self, result: &T) {
+        pub fn finish_return<T: std::fmt::Debug>(&mut self, result: &T) {
             if self.finished {
                 return;
             }
@@ -262,7 +262,7 @@ pub mod runtime {
                         ),
                         values: vec![ValueSlot {
                             name: "result".to_owned(),
-                            preview: super::type_preview(result),
+                            preview: format!("{result:#?}"),
                         }],
                     },
                 );
@@ -325,10 +325,10 @@ pub mod runtime {
     }
 
     /// Builds a value preview for a traced function argument.
-    pub fn preview_argument<T>(name: impl Into<String>, value: &T) -> ValueSlot {
+    pub fn preview_argument<T: std::fmt::Debug>(name: impl Into<String>, value: &T) -> ValueSlot {
         ValueSlot {
             name: name.into(),
-            preview: super::type_preview(value),
+            preview: format!("{value:#?}"),
         }
     }
 
@@ -598,7 +598,10 @@ pub mod runtime {
         meta: FunctionMeta,
         values: Vec<ValueSlot>,
         inner: F,
-    ) -> InstrumentedFuture<F> {
+    ) -> InstrumentedFuture<F>
+    where
+        F::Output: std::fmt::Debug,
+    {
         let parent_call_id =
             CALL_STACK.with(|stack| stack.borrow().last().map(|frame| frame.call_id));
 
@@ -613,7 +616,10 @@ pub mod runtime {
         }
     }
 
-    impl<F: Future> Future for InstrumentedFuture<F> {
+    impl<F: Future> Future for InstrumentedFuture<F>
+    where
+        F::Output: std::fmt::Debug,
+    {
         type Output = F::Output;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -696,7 +702,7 @@ pub mod runtime {
                         values: vec![ValueSlot {
                             name: "result".to_owned(),
                             preview: match &res {
-                                std::task::Poll::Ready(val) => super::type_preview(val),
+                                std::task::Poll::Ready(val) => format!("{val:#?}"),
                                 _ => unreachable!(),
                             },
                         }],

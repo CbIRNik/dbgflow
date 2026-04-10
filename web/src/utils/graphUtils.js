@@ -17,11 +17,19 @@ function buildBaseGraphModel(session, selectedRun) {
   const allRunEdges = session.edges.filter(
     (edge) => runNodeIds.has(edge.from) && runNodeIds.has(edge.to),
   )
-  const nodeById = new Map(allRunNodes.map((node) => [node.id, node]))
+  const functionNodeById = new Map(
+    allRunNodes
+      .filter((node) => node.kind === "function")
+      .map((node) => [node.id, node]),
+  )
   const typeNodes = allRunNodes.filter((node) => node.kind === "type")
   const typeNodeById = new Map(typeNodes.map((node) => [node.id, node]))
   const testLinkByTestNode = new Map()
   const nodeIdByCallId = new Map()
+  const latestCallNodeIdByFunctionId = new Map()
+  const callOrdinalByFunctionId = new Map()
+  const renderNodes = []
+  let rootCallNodeId = null
 
   for (const edge of allRunEdges) {
     if (edge.kind === "test_link") {
@@ -30,30 +38,64 @@ function buildBaseGraphModel(session, selectedRun) {
   }
 
   for (const event of selectedRun.events) {
-    if (event.kind === "function_enter" && event.call_id != null) {
-      nodeIdByCallId.set(event.call_id, event.node_id)
+    if (event.kind !== "function_enter" || event.call_id == null) {
+      continue
     }
+
+    const baseNode = functionNodeById.get(event.node_id)
+    if (!baseNode) {
+      continue
+    }
+
+    const ordinal = (callOrdinalByFunctionId.get(event.node_id) ?? 0) + 1
+    callOrdinalByFunctionId.set(event.node_id, ordinal)
+
+    const callNodeId = `${event.node_id}::call:${event.call_id}`
+    nodeIdByCallId.set(event.call_id, callNodeId)
+    latestCallNodeIdByFunctionId.set(event.node_id, callNodeId)
+
+    if (!rootCallNodeId && event.parent_call_id == null) {
+      rootCallNodeId = callNodeId
+    }
+
+    renderNodes.push({
+      ...baseNode,
+      id: callNodeId,
+      label: ordinal > 1 ? `${baseNode.label} #${ordinal}` : baseNode.label,
+      functionId: baseNode.id,
+      callId: event.call_id,
+    })
   }
 
-  const renderNodes = allRunNodes.filter((node) => node.kind === "function")
+  const resolvedTestLinkByTestNode = new Map()
+  for (const [testNodeId, functionNodeId] of testLinkByTestNode.entries()) {
+    resolvedTestLinkByTestNode.set(
+      testNodeId,
+      latestCallNodeIdByFunctionId.get(functionNodeId) ?? functionNodeId,
+    )
+  }
+
+  const rootNodeId = rootCallNodeId ?? selectedRun.rootNodeId
+  const nodeById = new Map(renderNodes.map((node) => [node.id, node]))
   const renderNodeIds = new Set(renderNodes.map((node) => node.id))
   const renderEdges = buildRenderEdges(
     selectedRun.events,
     allRunEdges,
     renderNodeIds,
-    testLinkByTestNode,
+    resolvedTestLinkByTestNode,
     nodeIdByCallId,
-    selectedRun.rootNodeId,
+    rootNodeId,
   )
 
   const firstSeenSeqByNode = new Map()
   const previousFocusedNodeIdBySeq = new Map()
+  let previousFunctionNodeId = null
   for (const event of selectedRun.events) {
     const focusNodeId = focusNodeIdForEvent(
       event,
-      testLinkByTestNode,
+      resolvedTestLinkByTestNode,
       nodeIdByCallId,
-      selectedRun.rootNodeId,
+      rootNodeId,
     )
 
     if (!focusNodeId || !renderNodeIds.has(focusNodeId)) {
@@ -65,15 +107,15 @@ function buildBaseGraphModel(session, selectedRun) {
     }
 
     if (event.kind === "function_enter") {
-      const parentNodeId = event.parent_call_id != null ? nodeIdByCallId.get(event.parent_call_id) : null;
-      if (parentNodeId && parentNodeId !== focusNodeId) {
-        previousFocusedNodeIdBySeq.set(event.seq, parentNodeId)
+      if (previousFunctionNodeId && previousFunctionNodeId !== focusNodeId) {
+        previousFocusedNodeIdBySeq.set(event.seq, previousFunctionNodeId)
       }
+      previousFunctionNodeId = focusNodeId
     } else if (String(event.kind).startsWith("test_")) {
       // test links can just use what link they have
-      const parentNodeId = testLinkByTestNode.get(event.node_id);
+      const parentNodeId = resolvedTestLinkByTestNode.get(event.node_id)
       if (parentNodeId) {
-        previousFocusedNodeIdBySeq.set(event.seq, parentNodeId);
+        previousFocusedNodeIdBySeq.set(event.seq, parentNodeId)
       }
     }
   }
@@ -86,21 +128,25 @@ function buildBaseGraphModel(session, selectedRun) {
       edges: renderEdges,
       events: selectedRun.events,
     },
-    rootNodeId: selectedRun.rootNodeId,
+    rootNodeId,
     allNodes: allRunNodes,
     allEdges: allRunEdges,
     nodeById,
     typeNodes,
     typeNodeById,
     renderNodeIds,
-    testLinkByTestNode,
+    testLinkByTestNode: resolvedTestLinkByTestNode,
     firstSeenSeqByNode,
     nodeIdByCallId,
     previousFocusedNodeIdBySeq,
   }
 }
 
-export function buildPlaybackGraphModel(baseGraphModel, visibleEvents) {
+export function buildPlaybackGraphModel(
+  baseGraphModel,
+  visibleEvents,
+  playbackContext = null,
+) {
   if (!baseGraphModel) {
     return null
   }
@@ -133,14 +179,19 @@ export function buildPlaybackGraphModel(baseGraphModel, visibleEvents) {
       visitedNodeIds.add(focusNodeId)
     }
 
+    const callNodeId =
+      event.call_id != null
+        ? baseGraphModel.nodeIdByCallId.get(event.call_id)
+        : null
+
     if (
       event.kind === "function_enter" &&
-      baseGraphModel.renderNodeIds.has(event.node_id) &&
-      event.call_id != null
+      callNodeId &&
+      baseGraphModel.renderNodeIds.has(callNodeId)
     ) {
-      openFunctionNodesByCallId.set(event.call_id, event.node_id)
-      bumpMapCount(openFunctionCountByNodeId, event.node_id, 1)
-      runningNodeIds.add(event.node_id)
+      openFunctionNodesByCallId.set(event.call_id, callNodeId)
+      bumpMapCount(openFunctionCountByNodeId, callNodeId, 1)
+      runningNodeIds.add(callNodeId)
     }
 
     if (event.kind === "function_exit" && event.call_id != null) {
@@ -157,19 +208,31 @@ export function buildPlaybackGraphModel(baseGraphModel, visibleEvents) {
       }
     }
 
-    if (event.kind === "function_enter" && baseGraphModel.renderNodeIds.has(event.node_id)) {
+    if (
+      event.kind === "function_enter" &&
+      callNodeId &&
+      baseGraphModel.renderNodeIds.has(callNodeId)
+    ) {
       pushMapItems(
         inputDataByNode,
-        event.node_id,
-        resolveInputRecords(event, latestSnapshotByTypeNode, baseGraphModel.typeNodes),
+        callNodeId,
+        resolveInputRecords(
+          event,
+          latestSnapshotByTypeNode,
+          baseGraphModel.typeNodes,
+        ),
       )
     }
 
-    if (event.kind === "function_exit" && baseGraphModel.renderNodeIds.has(event.node_id)) {
+    if (
+      event.kind === "function_exit" &&
+      callNodeId &&
+      baseGraphModel.renderNodeIds.has(callNodeId)
+    ) {
       pushMapItems(
         outputDataByNode,
-        event.node_id,
-        formatExitRecords(event, baseGraphModel.nodeById.get(event.node_id)),
+        callNodeId,
+        formatExitRecords(event, baseGraphModel.nodeById.get(callNodeId)),
       )
     }
 
@@ -178,13 +241,18 @@ export function buildPlaybackGraphModel(baseGraphModel, visibleEvents) {
       latestSnapshotByTypeNode.set(event.node_id, event)
 
       const sourceNodeId =
-        event.call_id != null ? baseGraphModel.nodeIdByCallId.get(event.call_id) : null
+        event.call_id != null
+          ? baseGraphModel.nodeIdByCallId.get(event.call_id)
+          : null
 
       if (sourceNodeId && baseGraphModel.renderNodeIds.has(sourceNodeId)) {
         pushMapItems(
           outputDataByNode,
           sourceNodeId,
-          formatSnapshotRecords(event, baseGraphModel.typeNodeById.get(event.node_id)),
+          formatSnapshotRecords(
+            event,
+            baseGraphModel.typeNodeById.get(event.node_id),
+          ),
         )
       }
     }
@@ -221,6 +289,23 @@ export function buildPlaybackGraphModel(baseGraphModel, visibleEvents) {
     }
   }
 
+  // For parallel branches, treat contiguous sibling enters as a single "start" step
+  // so all sibling nodes can be highlighted together.
+  if (
+    playbackContext?.sortedEvents &&
+    Number.isInteger(playbackContext.currentIndex)
+  ) {
+    const parallelNodeIds = collectParallelEnterNodeIdsForStep(
+      playbackContext.sortedEvents,
+      playbackContext.currentIndex,
+      baseGraphModel.renderNodeIds,
+      baseGraphModel.nodeIdByCallId,
+    )
+    for (const nodeId of parallelNodeIds) {
+      runningNodeIds.add(nodeId)
+    }
+  }
+
   return {
     ...baseGraphModel,
     eventsByNode,
@@ -235,6 +320,66 @@ export function buildPlaybackGraphModel(baseGraphModel, visibleEvents) {
   }
 }
 
+function collectParallelEnterNodeIdsForStep(
+  sortedEvents,
+  currentIndex,
+  renderNodeIds,
+  nodeIdByCallId,
+) {
+  const nodeIds = new Set()
+  const currentEvent = sortedEvents[currentIndex]
+
+  if (
+    !currentEvent ||
+    currentEvent.kind !== "function_enter" ||
+    currentEvent.parent_call_id == null
+  ) {
+    return nodeIds
+  }
+
+  const sharedParentCallId = currentEvent.parent_call_id
+
+  let start = currentIndex
+  while (start > 0) {
+    const previous = sortedEvents[start - 1]
+    if (
+      previous?.kind === "function_enter" &&
+      previous.parent_call_id === sharedParentCallId
+    ) {
+      start -= 1
+      continue
+    }
+    break
+  }
+
+  let end = currentIndex
+  while (end + 1 < sortedEvents.length) {
+    const next = sortedEvents[end + 1]
+    if (
+      next?.kind === "function_enter" &&
+      next.parent_call_id === sharedParentCallId
+    ) {
+      end += 1
+      continue
+    }
+    break
+  }
+
+  for (let i = start; i <= end; i += 1) {
+    const event = sortedEvents[i]
+    if (event?.kind !== "function_enter") {
+      continue
+    }
+    const callNodeId =
+      event.call_id != null ? nodeIdByCallId.get(event.call_id) : null
+    if (callNodeId && renderNodeIds.has(callNodeId)) {
+      nodeIds.add(callNodeId)
+    }
+  }
+
+  return nodeIds
+}
+
 export function applyLayout(nodes, edges, firstSeenSeqByNode) {
   const graph = new dagre.graphlib.Graph()
   graph.setDefaultEdgeLabel(() => ({}))
@@ -245,7 +390,6 @@ export function applyLayout(nodes, edges, firstSeenSeqByNode) {
     marginx: 48,
     marginy: 44,
   })
-
   ;[...nodes]
     .sort((left, right) => compareNodes(left, right, firstSeenSeqByNode))
     .forEach((node) => {
@@ -316,6 +460,13 @@ export function focusNodeIdForEvent(
     return rootNodeId || event.node_id
   }
 
+  if (event.kind === "function_enter" || event.kind === "function_exit") {
+    if (event.call_id != null) {
+      return nodeIdByCallId.get(event.call_id) ?? event.node_id
+    }
+    return event.node_id
+  }
+
   return event.node_id
 }
 
@@ -384,8 +535,15 @@ function buildRenderEdges(
       continue
     }
 
-    const parentNodeId = event.parent_call_id != null ? nodeIdByCallId.get(event.parent_call_id) : null;
-    if (parentNodeId && parentNodeId !== focusNodeId && renderNodeIds.has(parentNodeId)) {
+    const parentNodeId =
+      event.parent_call_id != null
+        ? nodeIdByCallId.get(event.parent_call_id)
+        : null
+    if (
+      parentNodeId &&
+      parentNodeId !== focusNodeId &&
+      renderNodeIds.has(parentNodeId)
+    ) {
       const edgeKey = `${parentNodeId}::${focusNodeId}::control_flow`
       if (!edgeKeys.has(edgeKey)) {
         renderEdges.push({
@@ -439,7 +597,7 @@ export function buildNodeData(
   const hasExecuted = graphModel.visitedNodeIds.has(nodeId)
   const isActiveStep = activePlaybackNodeId === nodeId
   const isFailingTarget = graphModel.failingTargetIds.has(nodeId)
-  const isRunning = graphModel.runningNodeIds.has(nodeId) && isActiveStep
+  const isRunning = graphModel.runningNodeIds.has(nodeId)
   const status = summarizeStatus(
     node.kind,
     tests,
@@ -462,7 +620,7 @@ export function buildNodeData(
     isSelected: selectedNodeId === nodeId,
     isCurrent: isActiveStep,
     isDetailsOpen: detailsNodeId === nodeId,
-    canRunChain: selectedRun?.rootNodeId === nodeId,
+    canRunChain: graphModel.rootNodeId === nodeId,
     isFailingTarget,
     preview: summarizePreview(inputData, outputData, shortenPreviewFn),
     events,
@@ -493,7 +651,7 @@ export function buildCanvasNodeData(
   const hasExecuted = graphModel.visitedNodeIds.has(nodeId)
   const isActiveStep = activePlaybackNodeId === nodeId
   const isFailingTarget = graphModel.failingTargetIds.has(nodeId)
-  const isRunning = graphModel.runningNodeIds.has(nodeId) && isActiveStep
+  const isRunning = graphModel.runningNodeIds.has(nodeId)
   const status = summarizeStatus(
     node.kind,
     tests,
@@ -507,7 +665,7 @@ export function buildCanvasNodeData(
     node,
     executionState: resolveExecutionState(status),
     isSelected: selectedNodeId === nodeId,
-    canRunChain: selectedRun?.rootNodeId === nodeId,
+    canRunChain: graphModel.rootNodeId === nodeId,
     dimensions: nodeDimensions,
     onRunChain,
     onOpenDetails,
@@ -622,7 +780,8 @@ function formatExitRecords(event, sourceNode) {
         : value.preview,
     title: "return",
     sourceLabel: null,
-    language: sourceNode?.source && isTypePreview(value.preview) ? "rust" : null,
+    language:
+      sourceNode?.source && isTypePreview(value.preview) ? "rust" : null,
   }))
 }
 
