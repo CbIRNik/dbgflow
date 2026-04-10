@@ -1,10 +1,11 @@
 [package]
 name = "dbg-pipelines"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 
 [dependencies]
 dbgflow = { path = "../../crates/dbg-cli" }
+tokio = { version = "1.51.1", features = ["full"] }
 
 [workspace]
 
@@ -34,4 +35,7 @@ path = "examples/collections.rs"
 
 [[example]]
 name = "pattern_matching"
-path = "examples/pattern_matching.rs"
+
+[[example]]
+name = "async_pipelines"
+path = "examples/async_pipelines.rs"

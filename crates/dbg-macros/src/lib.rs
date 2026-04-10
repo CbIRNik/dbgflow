@@ -54,22 +54,40 @@ pub fn trace(attr: TokenStream, item: TokenStream) -> TokenStream {
     });
 
     let block = &function.block;
-    function.block = Box::new(syn::parse_quote!({
-        let mut __dbg_frame = #dbgflow::runtime::TraceFrame::enter(
-            #dbgflow::FunctionMeta {
-                id: concat!(module_path!(), "::", stringify!(#ident)),
-                label: #label,
-                module_path: module_path!(),
-                file: file!(),
-                line: line!(),
-                source: #source,
-            },
-            vec![#(#argument_values),*],
-        );
-        let __dbg_result = { #block };
-        __dbg_frame.finish_return(&__dbg_result);
-        __dbg_result
-    }));
+
+    if function.sig.asyncness.is_some() {
+        function.block = Box::new(syn::parse_quote!({
+            #dbgflow::runtime::trace_future(
+                #dbgflow::FunctionMeta {
+                    id: concat!(module_path!(), "::", stringify!(#ident)),
+                    label: #label,
+                    module_path: module_path!(),
+                    file: file!(),
+                    line: line!(),
+                    source: #source,
+                },
+                vec![#(#argument_values),*],
+                async move { #block }
+            ).await
+        }));
+    } else {
+        function.block = Box::new(syn::parse_quote!({
+            let mut __dbg_frame = #dbgflow::runtime::TraceFrame::enter(
+                #dbgflow::FunctionMeta {
+                    id: concat!(module_path!(), "::", stringify!(#ident)),
+                    label: #label,
+                    module_path: module_path!(),
+                    file: file!(),
+                    line: line!(),
+                    source: #source,
+                },
+                vec![#(#argument_values),*],
+            );
+            let __dbg_result = { #block };
+            __dbg_frame.finish_return(&__dbg_result);
+            __dbg_result
+        }));
+    }
 
     quote!(#function).into()
 }
