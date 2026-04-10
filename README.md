@@ -2,6 +2,8 @@
 
 A graph-first debugger for Rust that visualizes program execution as an interactive node graph.
 
+Current release: `0.3.0`.
+
 ## Features
 
 - **Visual Execution Graph** — See function calls as nodes and their relationships as edges
@@ -18,10 +20,10 @@ A graph-first debugger for Rust that visualizes program execution as an interact
 
 dbgflow is published on crates.io as three packages:
 
-| Package | Description |
-|---------|-------------|
-| [`dbgflow`](https://crates.io/crates/dbgflow) | Main crate with library and CLI binary |
-| [`dbgflow-core`](https://crates.io/crates/dbgflow-core) | Runtime, session model, and embedded UI server |
+| Package                                                     | Description                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| [`dbgflow`](https://crates.io/crates/dbgflow)               | Main crate with library and CLI binary                       |
+| [`dbgflow-core`](https://crates.io/crates/dbgflow-core)     | Runtime, session model, and embedded UI server               |
 | [`dbgflow-macros`](https://crates.io/crates/dbgflow-macros) | Procedural macros (`#[trace]`, `#[ui_debug]`, `#[dbg_test]`) |
 
 Documentation: [docs.rs/dbgflow](https://docs.rs/dbgflow)
@@ -185,6 +187,7 @@ The dbgflow UI provides an interactive visualization of your execution sessions.
 - **Data Nodes** — Display `#[ui_debug]` types with `db` badge
 - **Test Nodes** — Display tests with `t` badge, linked to their last traced function
 - **Edges** — Show call relationships and test-to-function links
+- **Parallel Call Instances** — Parallel invocations of the same function are rendered as separate call nodes
 - **Status Indicators** — Color-coded dots show idle (gray), running (orange), success (green), or failure (red)
 
 ### Left Panel (Node Details)
@@ -195,9 +198,10 @@ Click any node to open the details panel:
 - **Source Code** — Collapsible view of the traced function source (with Rust syntax highlighting)
 - **Input Section** — Captured function arguments and their values
 - **Output Section** — Return values and snapshots emitted during execution
+- **Step Changes** — Event-by-event timeline of captured values for the selected node
 - **Resizable** — Drag the panel edge to adjust width
 
-The panel automatically follows the active node during playback. Click the canvas background or press the X button to dismiss.
+The details panel stays pinned to the node you selected; playback focus changes only the graph selection. Click the canvas background or press the X button to dismiss.
 
 ### Playback Controls
 
@@ -253,11 +257,11 @@ dbgflow::save_current_session("artifacts/session.json")?;
 
 Sessions are stored as JSON files containing:
 
-| Field | Description |
-|-------|-------------|
-| `nodes` | Function, type, and test nodes with metadata |
-| `edges` | Relationships between nodes (calls, test links) |
-| `events` | Ordered sequence of execution events |
+| Field    | Description                                     |
+| -------- | ----------------------------------------------- |
+| `nodes`  | Function, type, and test nodes with metadata    |
+| `edges`  | Relationships between nodes (calls, test links) |
+| `events` | Ordered sequence of execution events            |
 
 ### Node Types
 

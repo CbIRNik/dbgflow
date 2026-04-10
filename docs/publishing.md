@@ -2,6 +2,8 @@
 
 This document is the release checklist for the next `dbgflow` release.
 
+Current release line: `0.3.0`.
+
 The first public release is already live:
 
 - [crates.io/crates/dbgflow](https://crates.io/crates/dbgflow)
@@ -124,7 +126,7 @@ Create a tap repository such as `yourname/homebrew-tap` and add `Formula/dbgflow
 class Dbgflow < Formula
   desc "Graph-first Rust debugger with trace macros and a browser UI"
   homepage "https://github.com/yourname/dbgflow"
-  url "https://github.com/yourname/dbgflow/archive/refs/tags/v0.1.0.tar.gz"
+  url "https://github.com/yourname/dbgflow/archive/refs/tags/v0.3.0.tar.gz"
   sha256 "REPLACE_WITH_RELEASE_TARBALL_SHA256"
   license "MIT"
 
@@ -151,4 +153,4 @@ brew install yourname/tap/dbgflow
 ## Release Hygiene
 
 - versioning policy
-- release tagging convention such as `v0.1.0`
+- release tagging convention such as `v0.3.0`
