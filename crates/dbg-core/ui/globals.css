@@ -310,11 +310,11 @@
   .w-56 {
     width: calc(var(--spacing) * 56);
   }
+  .w-65 {
+    width: calc(var(--spacing) * 65);
+  }
   .w-\[1px\] {
     width: 1px;
-  }
-  .w-\[260px\] {
-    width: 260px;
   }
   .w-\[320px\] {
     width: 320px;

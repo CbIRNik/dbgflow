@@ -51,7 +51,7 @@ function PipelineDropdown({ onRunSelect, runs, selectedRun }) {
           {selectedRun?.label ?? "Pipeline"}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent className="max-h-72 w-[260px] border-border bg-popover/98">
+      <SelectContent className="max-h-72 w-65 border-border bg-popover/98">
         {runs.map((run) => (
           <SelectItem className="py-2" key={run.id} value={run.id}>
             <div className="flex w-full items-center justify-between gap-3">
